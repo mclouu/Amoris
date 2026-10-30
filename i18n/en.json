@@ -21,5 +21,10 @@
   "col_date_started": "Date started",
   "col_date_completed": "Date completed",
   "col_notes": "Notes",
-  "menu_reset_defaults": "Reset to defaults"
+  "menu_reset_defaults": "Reset to defaults",
+
+  "settings_cat_language": "Language",
+  "settings_cat_theme": "Theme",
+  "settings_theme_placeholder": "🛠️ Theme Panel (Coming soon)",
+  "settings_lang_label": "Choose application language:"
 }

@@ -100,3 +100,10 @@ class Header(QWidget):
         """Ouvre la fenêtre modale des paramètres."""
         self.settings_window = SettingsWindow(self)
         self.settings_window.exec()
+
+    def retranslate_ui(self):
+        """Met à jour les textes du header lors d'un changement de langue."""
+        self.search_input.setPlaceholderText(tr.get("search_placeholder"))
+        self.btn_refresh_mal.setToolTip(tr.get("tooltip_refresh"))
+        self.btn_scan_local.setToolTip(tr.get("tooltip_scan"))
+        self.btn_settings.setToolTip(tr.get("tooltip_settings"))

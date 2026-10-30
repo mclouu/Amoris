@@ -47,6 +47,12 @@ class MainWindow(QMainWindow):
         self.content_view = ContentView()
         main_layout.addWidget(self.content_view, stretch=1)
 
+    def retranslate_ui(self):
+        """Propage le changement de langue à toute l'interface."""
+        self.setWindowTitle(tr.get("app_title"))
+        self.header.retranslate_ui()
+        self.content_view.retranslate_ui()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

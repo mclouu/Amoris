@@ -22,5 +22,10 @@
   "col_date_started": "Date de début",
   "col_date_completed": "Date de fin",
   "col_notes": "Notes",
-  "menu_reset_defaults": "Rétablir les valeurs par défaut"
+  "menu_reset_defaults": "Rétablir les valeurs par défaut",
+
+  "settings_cat_language": "Langue",
+  "settings_cat_theme": "Thème",
+  "settings_theme_placeholder": "🛠️ Panneau des Thèmes (À venir)",
+  "settings_lang_label": "Choisissez la langue de l'application :"
 }

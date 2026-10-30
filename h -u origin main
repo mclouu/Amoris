@@ -1,0 +1,41 @@
+[33mcommit b84e7dd766e60e7f95849ece34e04befcb657d6b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: mclouu <rmathieu13@gmail.com>
+Date:   Fri Oct 30 08:37:30 2026 +0100
+
+    feat(i18n): implement JSON-based localization system and extract SettingsWindow into its own component
+
+[33mcommit 34429033f56469bd32116db5e31b8d0050f27617[m
+Author: mclouu <rmathieu13@gmail.com>
+Date:   Fri Oct 30 08:05:15 2026 +0100
+
+    feat: add category tabs (QTabWidget) and integrate custom SVG icons in header
+
+[33mcommit 87bcc4f7da21eb914f94e6b9c07b782e97e93aaf[m
+Author: mclouu <rmathieu13@gmail.com>
+Date:   Fri Oct 30 07:19:44 2026 +0100
+
+    feat: add interactive table columns, context menu, drag and drop and reset defaults
+
+[33mcommit f0784d70ff12e23b410bc4aa468e3c128e3cf56f[m
+Author: mclouu <rmathieu13@gmail.com>
+Date:   Fri Oct 30 06:52:00 2026 +0100
+
+    feat: add header, central colors system, content view and window icon
+
+[33mcommit 58e86ec4837d0d09fbcb0304e874b8772c24c878[m
+Author: mclouu <rmathieu13@gmail.com>
+Date:   Fri Oct 30 02:36:02 2026 +0100
+
+    feat: brique 1.5 validée - scanner CLI et structure JSON en place
+
+[33mcommit a121adf8463b7bcd358cd25e3faafb56fde4024e[m
+Author: mclouu <rmathieu13@gmail.com>
+Date:   Thu Oct 29 23:30:41 2026 +0100
+
+    feat(detector): implémente la détection Windows et le parsing robuste pour Tsundere-Raws et Erai-raws
+
+[33mcommit 65b21776a659513ee3accc586c310b4f61c879ac[m[33m ([m[1;31morigin/main[m[33m)[m
+Author: mclouu <rmathieu13@gmail.com>
+Date:   Thu Oct 29 22:19:51 2026 +0100
+
+    chore: initial commit - project structure and roadmap setup

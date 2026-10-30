@@ -169,3 +169,14 @@ class ContentView(QWidget):
 
         header_global_pos = header.mapToGlobal(pos)
         menu.exec(header_global_pos)
+
+    def retranslate_ui(self):
+        """Met à jour les textes des onglets et des colonnes du tableau."""
+        # 1. Mise à jour des onglets
+        for index, tab_info in enumerate(self.tabs_data):
+            new_tab_name = tr.get(tab_info['key'], count=tab_info['count'])
+            self.tabs.setTabText(index, new_tab_name)
+
+        # 2. Mise à jour des en-têtes de tous les tableaux actifs
+        for table in self.tables.values():
+            table.setHorizontalHeaderLabels([tr.get(col["key"]) for col in self.columns_config])
