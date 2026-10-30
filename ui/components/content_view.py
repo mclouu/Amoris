@@ -1,14 +1,23 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QHeaderView, QMenu
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QTableWidget, QHeaderView, QMenu
 from PyQt6.QtCore import Qt, QPoint
 from ui.colors import Colors
 
 
 class ContentView(QWidget):
-    """Zone de contenu principale affichant le tableau des animés (façon Taiga)."""
+    """Zone de contenu principale avec les onglets de statut (façon Taiga)."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet(f"background-color: {Colors.BG_MAIN};")
+
+        # Définition des catégories d'animés avec leurs compteurs (statiques pour l'instant)
+        self.tabs_data = [
+            {"name": "Currently watching", "count": 59},
+            {"name": "Completed", "count": 344},
+            {"name": "On hold", "count": 36},
+            {"name": "Dropped", "count": 91},
+            {"name": "Plan to watch", "count": 144},
+        ]
 
         # Définition de toutes les colonnes disponibles
         self.columns_config = [
@@ -17,7 +26,6 @@ class ContentView(QWidget):
             {"id": "season", "label": "Season", "default_visible": True, "default_width": 110},
             {"id": "score", "label": "Score", "default_visible": True, "default_width": 80},
             {"id": "last_updated", "label": "Last updated", "default_visible": True, "default_width": 130},
-            # Colonnes optionnelles (masquées par défaut)
             {"id": "average_score", "label": "Average score", "default_visible": False, "default_width": 100},
             {"id": "type", "label": "Type", "default_visible": False, "default_width": 80},
             {"id": "date_started", "label": "Date started", "default_visible": False, "default_width": 110},
@@ -31,13 +39,51 @@ class ContentView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
 
-        # Tableau pour la grille de données
-        self.table = QTableWidget()
-        self.table.setColumnCount(len(self.columns_config))
-        self.table.setHorizontalHeaderLabels([col["label"] for col in self.columns_config])
+        # Création du composant d'onglets (QTabWidget)
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: none;
+                background-color: {Colors.BG_MAIN};
+            }}
+            QTabBar::tab {{
+                background-color: {Colors.BG_DARKER};
+                color: {Colors.TEXT_PRIMARY};
+                padding: 8px 14px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                margin-right: 2px;
+                font-weight: bold;
+            }}
+            QTabBar::tab:selected {{
+                background-color: {Colors.BG_SURFACE};
+                color: {Colors.ACCENT_BLUE};
+                border-bottom: 2px solid {Colors.ACCENT_BLUE};
+            }}
+            QTabBar::tab:hover {{
+                background-color: {Colors.BG_SURFACE};
+            }}
+        """)
 
-        # Style de la table et des en-têtes avec les bordures verticales
-        self.table.setStyleSheet(f"""
+        # Dictionnaire pour garder une référence sur nos tables par onglet
+        self.tables = {}
+
+        # Génération dynamique des onglets
+        for tab_info in self.tabs_data:
+            tab_name = f"{tab_info['name']} ({tab_info['count']})"
+            table_widget = self._create_table()
+            self.tabs.addTab(table_widget, tab_name)
+            self.tables[tab_info['name']] = table_widget
+
+        layout.addWidget(self.tabs)
+
+    def _create_table(self) -> QTableWidget:
+        """Crée et retourne une instance de tableau configurée avec toutes nos options."""
+        table = QTableWidget()
+        table.setColumnCount(len(self.columns_config))
+        table.setHorizontalHeaderLabels([col["label"] for col in self.columns_config])
+
+        table.setStyleSheet(f"""
             QTableWidget {{
                 background-color: {Colors.BG_MAIN};
                 color: {Colors.TEXT_PRIMARY};
@@ -56,40 +102,30 @@ class ContentView(QWidget):
             }}
         """)
 
-        # Configuration de l'en-tête
-        header = self.table.horizontalHeader()
+        header = table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-
-        # ⚡ Activation du Drag & Drop pour réordonner les colonnes à la souris !
         header.setSectionsMovable(True)
-
-        # Activation du clic droit sur l'en-tête
         header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        header.customContextMenuRequested.connect(self._show_header_context_menu)
+        header.customContextMenuRequested.connect(lambda pos, t=table: self._show_header_context_menu(pos, t))
 
-        # Application des tailles, visibilités et ordres initiaux
-        self.reset_to_defaults()
+        # Applique les largeurs et visibilités par défaut
+        self._reset_table_to_defaults(table)
 
-        layout.addWidget(self.table)
+        return table
 
-    def reset_to_defaults(self):
-        """Réinitialise la visibilité, la taille et l'ordre initial de toutes les colonnes."""
-        header = self.table.horizontalHeader()
-
-        # Remet les colonnes dans leur ordre logique d'origine
+    def _reset_table_to_defaults(self, table: QTableWidget):
+        header = table.horizontalHeader()
         for logical_index in range(len(self.columns_config)):
             visual_index = header.visualIndex(logical_index)
             if visual_index != logical_index:
                 header.moveSection(visual_index, logical_index)
 
-        # Réapplique les tailles et visibilités par défaut
         for index, col in enumerate(self.columns_config):
-            self.table.setColumnWidth(index, col["default_width"])
-            self.table.setColumnHidden(index, not col["default_visible"])
+            table.setColumnWidth(index, col["default_width"])
+            table.setColumnHidden(index, not col["default_visible"])
 
-    def _show_header_context_menu(self, pos: QPoint):
-        """Affiche le menu contextuel du clic droit sur l'en-tête."""
-        header = self.table.horizontalHeader()
+    def _show_header_context_menu(self, pos: QPoint, table: QTableWidget):
+        header = table.horizontalHeader()
         menu = QMenu(self)
 
         menu.setStyleSheet(f"""
@@ -116,20 +152,16 @@ class ContentView(QWidget):
         """)
 
         for index, col in enumerate(self.columns_config):
-            is_visible = not self.table.isColumnHidden(index)
+            is_visible = not table.isColumnHidden(index)
             action = menu.addAction(col["label"])
             action.setCheckable(True)
             action.setChecked(is_visible)
-            action.triggered.connect(lambda checked, idx=index: self._toggle_column(idx, checked))
+            action.triggered.connect(lambda checked, idx=index, t=table: t.setColumnHidden(idx, not checked))
 
         menu.addSeparator()
 
         reset_action = menu.addAction("Reset to defaults")
-        reset_action.triggered.connect(self.reset_to_defaults)
+        reset_action.triggered.connect(lambda: self._reset_table_to_defaults(table))
 
         header_global_pos = header.mapToGlobal(pos)
         menu.exec(header_global_pos)
-
-        def _toggle_column(self, index: int, visible: bool):
-            """Affiche ou masque une colonne spécifique."""
-            self.table.setColumnHidden(index, not visible)

@@ -1,5 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QDialog, QVBoxLayout, QLabel
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
+from pathlib import Path
 from ui.colors import Colors
 
 
@@ -62,7 +64,6 @@ class Header(QWidget):
                 background-color: {Colors.BG_SURFACE};
                 border: none;
                 border-radius: 6px;
-                font-size: 16px;
             }}
             QPushButton:hover {{
                 background-color: {Colors.HOVER_BTN};
@@ -72,24 +73,30 @@ class Header(QWidget):
             }}
         """
 
-        # 2. Bouton 1 : Actualisation MAL (API)
-        self.btn_refresh_mal = QPushButton("☁️")
+        # Chemin propre vers le dossier d'icônes avec pathlib (zéro warning !)
+        icons_dir = Path(__file__).resolve().parent.parent.parent / "assets" / "icons"
+
+        # 2. Bouton 1 : Actualisation MAL (Update)
+        self.btn_refresh_mal = QPushButton()
+        self.btn_refresh_mal.setIcon(QIcon(str(icons_dir / "update.svg")))
         self.btn_refresh_mal.setFixedSize(35, 35)
         self.btn_refresh_mal.setStyleSheet(icon_btn_style)
         self.btn_refresh_mal.setToolTip("Forcer la synchronisation API MyAnimeList")
         self.btn_refresh_mal.clicked.connect(self._on_refresh_mal_clicked)
         layout.addWidget(self.btn_refresh_mal)
 
-        # 3. Bouton 2 : Scan local
-        self.btn_scan_local = QPushButton("📂")
+        # 3. Bouton 2 : Scan local (Scan)
+        self.btn_scan_local = QPushButton()
+        self.btn_scan_local.setIcon(QIcon(str(icons_dir / "scan.svg")))
         self.btn_scan_local.setFixedSize(35, 35)
         self.btn_scan_local.setStyleSheet(icon_btn_style)
         self.btn_scan_local.setToolTip("Relancer le scan du dossier local")
         self.btn_scan_local.clicked.connect(self._on_scan_local_clicked)
         layout.addWidget(self.btn_scan_local)
 
-        # 4. Bouton 3 : Paramètres (Roue crantée)
-        self.btn_settings = QPushButton("⚙️")
+        # 4. Bouton 3 : Paramètres (Config)
+        self.btn_settings = QPushButton()
+        self.btn_settings.setIcon(QIcon(str(icons_dir / "config.svg")))
         self.btn_settings.setFixedSize(35, 35)
         self.btn_settings.setStyleSheet(icon_btn_style)
         self.btn_settings.setToolTip("Paramètres")
@@ -97,11 +104,9 @@ class Header(QWidget):
         layout.addWidget(self.btn_settings)
 
     def _on_refresh_mal_clicked(self):
-        # TODO: Implémenter l'appel API MAL asynchrone ici plus tard
         print("[API] Rafraîchissement MAL demandé (Placeholder)")
 
     def _on_scan_local_clicked(self):
-        # TODO: Brancher le LocalAnimeScanner ici si besoin
         print("[Local] Scan du dossier demandé (Placeholder)")
 
     def _open_settings(self):
