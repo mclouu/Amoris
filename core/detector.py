@@ -14,27 +14,27 @@ class VideoDetector:
         associées à un PID donné.
         """
         titles = []
-        EnumWindows = ctypes.windll.user32.EnumWindows
-        EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_long)
-        GetWindowThreadProcessId = ctypes.windll.user32.GetWindowThreadProcessId
-        IsWindowVisible = ctypes.windll.user32.IsWindowVisible
-        GetWindowTextLengthW = ctypes.windll.user32.GetWindowTextLengthW
-        GetWindowTextW = ctypes.windll.user32.GetWindowTextW
+        enum_windows = ctypes.windll.user32.EnumWindows
+        enum_windows_proc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_long)
+        get_window_thread_process_id = ctypes.windll.user32.GetWindowThreadProcessId
+        is_window_visible = ctypes.windll.user32.IsWindowVisible
+        get_window_text_length_w = ctypes.windll.user32.GetWindowTextLengthW
+        get_window_text_w = ctypes.windll.user32.GetWindowTextW
 
-        def foreach_window(hwnd, lParam):
-            if IsWindowVisible(hwnd):
+        def foreach_window(hwnd, lparam):
+            if is_window_visible(hwnd):
                 pid = ctypes.c_ulong()
-                GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                get_window_thread_process_id(hwnd, ctypes.byref(pid))
                 if pid.value == target_pid:
-                    length = GetWindowTextLengthW(hwnd)
+                    length = get_window_text_length_w(hwnd)
                     if length > 0:
                         buff = ctypes.create_unicode_buffer(length + 1)
-                        GetWindowTextW(hwnd, buff, length + 1)
+                        get_window_text_w(hwnd, buff, length + 1)
                         if buff.value.strip():
                             titles.append(buff.value)
             return True
 
-        EnumWindows(EnumWindowsProc(foreach_window), 0)
+        enum_windows(enum_windows_proc(foreach_window), 0)
         return titles
 
     def get_active_media_title(self):
@@ -83,7 +83,7 @@ class VideoDetector:
             if match:
                 episode = match.group(1)
 
-            clean_title_no_tags = re.sub(r'\[.*?\]', '', clean_title)
+            clean_title_no_tags = re.sub(r'\[.*?]', '', clean_title)
             anime_name = clean_title_no_tags.split('-')[0].strip()
 
         anime_name = re.sub(r'[-–]+$', '', anime_name).strip()

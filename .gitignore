@@ -44,3 +44,6 @@ venv.bak/
 .DS_Store
 Thumbs.db
 "@ | Out-File -Encoding utf8 .gitignore
+
+# Cache & Database locales
+cache/
