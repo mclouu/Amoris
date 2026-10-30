@@ -1,23 +1,10 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton, QDialog, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from pathlib import Path
 from ui.colors import Colors
-
-
-class SettingsWindow(QDialog):
-    """Fenêtre de paramètres (laissée vide pour l'instant)."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Paramètres - Amoris")
-        self.resize(400, 300)
-        self.setStyleSheet(f"background-color: {Colors.BG_MAIN}; color: {Colors.TEXT_PRIMARY};")
-
-        layout = QVBoxLayout(self)
-        label = QLabel("🛠️ Panneau des Paramètres (À venir)")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label)
+from utils.translator import tr
+from ui.components.settings_window import SettingsWindow  # 👈 Import propre de la modale
 
 
 class Header(QWidget):
@@ -39,7 +26,7 @@ class Header(QWidget):
 
         # 1. Barre de recherche globale
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Rechercher un animé...")
+        self.search_input.setPlaceholderText(tr.get("search_placeholder"))
         self.search_input.setFixedHeight(35)
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
@@ -81,7 +68,7 @@ class Header(QWidget):
         self.btn_refresh_mal.setIcon(QIcon(str(icons_dir / "update.svg")))
         self.btn_refresh_mal.setFixedSize(35, 35)
         self.btn_refresh_mal.setStyleSheet(icon_btn_style)
-        self.btn_refresh_mal.setToolTip("Forcer la synchronisation API MyAnimeList")
+        self.btn_refresh_mal.setToolTip(tr.get("tooltip_refresh"))
         self.btn_refresh_mal.clicked.connect(self._on_refresh_mal_clicked)
         layout.addWidget(self.btn_refresh_mal)
 
@@ -90,7 +77,7 @@ class Header(QWidget):
         self.btn_scan_local.setIcon(QIcon(str(icons_dir / "scan.svg")))
         self.btn_scan_local.setFixedSize(35, 35)
         self.btn_scan_local.setStyleSheet(icon_btn_style)
-        self.btn_scan_local.setToolTip("Relancer le scan du dossier local")
+        self.btn_scan_local.setToolTip(tr.get("tooltip_scan"))
         self.btn_scan_local.clicked.connect(self._on_scan_local_clicked)
         layout.addWidget(self.btn_scan_local)
 
@@ -99,7 +86,7 @@ class Header(QWidget):
         self.btn_settings.setIcon(QIcon(str(icons_dir / "config.svg")))
         self.btn_settings.setFixedSize(35, 35)
         self.btn_settings.setStyleSheet(icon_btn_style)
-        self.btn_settings.setToolTip("Paramètres")
+        self.btn_settings.setToolTip(tr.get("tooltip_settings"))
         self.btn_settings.clicked.connect(self._open_settings)
         layout.addWidget(self.btn_settings)
 

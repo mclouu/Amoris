@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QTableWidget, QHeaderView, QMenu
 from PyQt6.QtCore import Qt, QPoint
 from ui.colors import Colors
+from utils.translator import tr  # 👈 Import de notre traducteur
 
 
 class ContentView(QWidget):
@@ -10,27 +11,27 @@ class ContentView(QWidget):
         super().__init__(parent)
         self.setStyleSheet(f"background-color: {Colors.BG_MAIN};")
 
-        # Définition des catégories d'animés avec leurs compteurs (statiques pour l'instant)
+        # Définition des catégories d'animés avec leurs clés i18n et compteurs
         self.tabs_data = [
-            {"name": "Currently watching", "count": 59},
-            {"name": "Completed", "count": 344},
-            {"name": "On hold", "count": 36},
-            {"name": "Dropped", "count": 91},
-            {"name": "Plan to watch", "count": 144},
+            {"id": "watching", "key": "tab_watching", "count": 59},
+            {"id": "completed", "key": "tab_completed", "count": 344},
+            {"id": "on_hold", "key": "tab_on_hold", "count": 36},
+            {"id": "dropped", "key": "tab_dropped", "count": 91},
+            {"id": "plan_to_watch", "key": "tab_plan_to_watch", "count": 144},
         ]
 
-        # Définition de toutes les colonnes disponibles
+        # Définition de toutes les colonnes disponibles avec leurs clés i18n
         self.columns_config = [
-            {"id": "title", "label": "Anime title", "default_visible": True, "default_width": 320},
-            {"id": "progress", "label": "Progress", "default_visible": True, "default_width": 320},
-            {"id": "season", "label": "Season", "default_visible": True, "default_width": 110},
-            {"id": "score", "label": "Score", "default_visible": True, "default_width": 80},
-            {"id": "last_updated", "label": "Last updated", "default_visible": True, "default_width": 130},
-            {"id": "average_score", "label": "Average score", "default_visible": False, "default_width": 100},
-            {"id": "type", "label": "Type", "default_visible": False, "default_width": 80},
-            {"id": "date_started", "label": "Date started", "default_visible": False, "default_width": 110},
-            {"id": "date_completed", "label": "Date completed", "default_visible": False, "default_width": 110},
-            {"id": "notes", "label": "Notes", "default_visible": False, "default_width": 100},
+            {"id": "title", "key": "col_title", "default_visible": True, "default_width": 320},
+            {"id": "progress", "key": "col_progress", "default_visible": True, "default_width": 320},
+            {"id": "season", "key": "col_season", "default_visible": True, "default_width": 110},
+            {"id": "score", "key": "col_score", "default_visible": True, "default_width": 80},
+            {"id": "last_updated", "key": "col_last_updated", "default_visible": True, "default_width": 130},
+            {"id": "average_score", "key": "col_average_score", "default_visible": False, "default_width": 100},
+            {"id": "type", "key": "col_type", "default_visible": False, "default_width": 80},
+            {"id": "date_started", "key": "col_date_started", "default_visible": False, "default_width": 110},
+            {"id": "date_completed", "key": "col_date_completed", "default_visible": False, "default_width": 110},
+            {"id": "notes", "key": "col_notes", "default_visible": False, "default_width": 100},
         ]
 
         self._init_ui()
@@ -68,12 +69,12 @@ class ContentView(QWidget):
         # Dictionnaire pour garder une référence sur nos tables par onglet
         self.tables = {}
 
-        # Génération dynamique des onglets
+        # Génération dynamique des onglets avec traduction et formatage du compteur
         for tab_info in self.tabs_data:
-            tab_name = f"{tab_info['name']} ({tab_info['count']})"
+            tab_name = tr.get(tab_info['key'], count=tab_info['count'])
             table_widget = self._create_table()
             self.tabs.addTab(table_widget, tab_name)
-            self.tables[tab_info['name']] = table_widget
+            self.tables[tab_info['id']] = table_widget
 
         layout.addWidget(self.tabs)
 
@@ -81,7 +82,9 @@ class ContentView(QWidget):
         """Crée et retourne une instance de tableau configurée avec toutes nos options."""
         table = QTableWidget()
         table.setColumnCount(len(self.columns_config))
-        table.setHorizontalHeaderLabels([col["label"] for col in self.columns_config])
+
+        # Récupération des labels traduits pour les en-têtes
+        table.setHorizontalHeaderLabels([tr.get(col["key"]) for col in self.columns_config])
 
         table.setStyleSheet(f"""
             QTableWidget {{
@@ -153,14 +156,15 @@ class ContentView(QWidget):
 
         for index, col in enumerate(self.columns_config):
             is_visible = not table.isColumnHidden(index)
-            action = menu.addAction(col["label"])
+            # Utilisation de la traduction pour chaque item du menu
+            action = menu.addAction(tr.get(col["key"]))
             action.setCheckable(True)
             action.setChecked(is_visible)
             action.triggered.connect(lambda checked, idx=index, t=table: t.setColumnHidden(idx, not checked))
 
         menu.addSeparator()
 
-        reset_action = menu.addAction("Reset to defaults")
+        reset_action = menu.addAction(tr.get("menu_reset_defaults"))
         reset_action.triggered.connect(lambda: self._reset_table_to_defaults(table))
 
         header_global_pos = header.mapToGlobal(pos)

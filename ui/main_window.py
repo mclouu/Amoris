@@ -1,9 +1,10 @@
 import sys
-import os
+from pathlib import Path
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout
 from PyQt6.QtGui import QIcon
 from ui.components.header import Header
 from ui.components.content_view import ContentView
+from utils.translator import tr  # 👈 Import de notre traducteur
 
 # ⚡ Astuce Windows : Permet d'afficher la vraie icône dans la barre des tâches
 # au lieu de l'icône par défaut de Python.
@@ -19,13 +20,14 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Amoris")
+        # Utilisation de la clé de traduction pour le titre
+        self.setWindowTitle(tr.get("app_title"))
         self.resize(1000, 650)
 
-        # Application de l'icône de la fenêtre
+        # Application de l'icône de la fenêtre avec pathlib (zéro warning)
         # On remonte d'un dossier (ui -> racine) pour aller chercher asset/amoris.ico
-        icon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "asset", "amoris.ico"))
-        self.setWindowIcon(QIcon(icon_path))
+        icon_path = Path(__file__).resolve().parent.parent / "asset" / "amoris.ico"
+        self.setWindowIcon(QIcon(str(icon_path)))
 
         self._init_ui()
 

@@ -1,0 +1,26 @@
+{
+  "app_title": "Amoris",
+  "search_placeholder": "🔍 Rechercher un animé...",
+  "tab_watching": "En cours ({count})",
+  "tab_completed": "Terminés ({count})",
+  "tab_on_hold": "En pause ({count})",
+  "tab_dropped": "Abandonnés ({count})",
+  "tab_plan_to_watch": "Prévus ({count})",
+  "tooltip_refresh": "Forcer la synchronisation API MyAnimeList",
+  "tooltip_scan": "Relancer le scan du dossier local",
+  "tooltip_settings": "Paramètres",
+  "settings_title": "Paramètres - Amoris",
+  "settings_placeholder": "🛠️ Panneau des Paramètres (À venir)",
+
+  "col_title": "Titre de l'animé",
+  "col_progress": "Progression",
+  "col_season": "Saison",
+  "col_score": "Score",
+  "col_last_updated": "Dernière mise à jour",
+  "col_average_score": "Score moyen",
+  "col_type": "Type",
+  "col_date_started": "Date de début",
+  "col_date_completed": "Date de fin",
+  "col_notes": "Notes",
+  "menu_reset_defaults": "Rétablir les valeurs par défaut"
+}
