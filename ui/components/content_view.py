@@ -1,98 +1,10 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QTableWidget, QHeaderView, QMenu, QTableWidgetItem, \
-    QStyledItemDelegate
-from PyQt6.QtCore import Qt, QPoint, QRectF
-from PyQt6.QtGui import QColor, QPainter, QPen, QBrush
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QTableWidget, QHeaderView, QMenu, QTableWidgetItem
+from PyQt6.QtCore import Qt, QPoint
 import json
 from pathlib import Path
 from ui.colors import Colors
 from utils.translator import tr
-
-
-class ProgressDelegate(QStyledItemDelegate):
-    """Délégué personnalisé pour dessiner la barre de progression, le vert (vu) et la fine ligne rouge (local)."""
-
-    def paint(self, painter: QPainter, option, index):
-        painter.save()
-
-        data = index.data(Qt.ItemDataRole.UserRole)
-        if not data:
-            super().paint(painter, option, index)
-            painter.restore()
-            return
-
-        watched = data.get("watched", 0)
-        total = data.get("total", 0)
-        local = data.get("local", 0)
-        season_prog = data.get("season_progress", 0.0)
-        status = data.get("status", "")
-
-        rect = option.rect
-
-        if status == "completed":
-            display_total = total if total > 0 else watched
-            total_str = str(display_total)
-        else:
-            total_str = str(total) if total and total > 0 else "?"
-
-        text = f"{watched}/{total_str}"
-
-        text_width = 45
-        padding_right = 10
-        bar_height = 14
-        margin_v = (rect.height() - bar_height) // 2
-        bar_width = rect.width() - text_width - padding_right - 12
-        bar_rect = QRectF(rect.left() + 8, rect.top() + margin_v, bar_width, bar_height)
-
-        text_rect = QRectF(
-            bar_rect.right() + padding_right,
-            rect.top(),
-            text_width,
-            rect.height()
-        )
-
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setPen(Qt.PenStyle.NoPen)
-
-        # 1. Fond de la barre (Gris / PROGRESS_BG)
-        painter.setBrush(QBrush(QColor(Colors.PROGRESS_BG)))
-        painter.drawRoundedRect(bar_rect, 3, 3)
-
-        max_val = total if total and total > 0 else max(watched, local, 1)
-
-        # 2. Progression de la saison (Orange - si applicable)
-        if season_prog > 0:
-            season_width = bar_rect.width() * min(season_prog, 1.0)
-            season_rect = QRectF(bar_rect.left(), bar_rect.top(), season_width, bar_rect.height())
-            painter.setBrush(QBrush(QColor(Colors.PROGRESS_SEASON)))
-            painter.drawRoundedRect(season_rect, 3, 3)
-
-        # 3. Barre principale des épisodes vus (Vert - PROGRESS_WATCHED)
-        # Elle prend toute la hauteur de la barre
-        if watched > 0:
-            watched_width = bar_rect.width() * min(watched / max_val, 1.0)
-            watched_rect = QRectF(bar_rect.left(), bar_rect.top(), watched_width, bar_rect.height())
-            painter.setBrush(QBrush(QColor(Colors.PROGRESS_WATCHED)))
-            painter.drawRoundedRect(watched_rect, 3, 3)
-
-        # 4. Fine ligne rouge pour les épisodes locaux (Rouge - PROGRESS_LOCAL)
-        # Dessinée sous forme de fine bande horizontale au milieu de la barre (ex: hauteur de 4px)
-            # 4. Fine ligne rouge pour les épisodes locaux (Rouge - PROGRESS_LOCAL) collée en bas
-            # 4. Fine ligne rouge pour les épisodes locaux (Rouge - PROGRESS_LOCAL) collée tout en bas
-            if local > 0:
-                local_width = bar_rect.width() * min(local / max_val, 1.0)
-                line_height = 4  # Épaisseur de la ligne
-                # Collée strictement sur le bord inférieur du conteneur
-                line_top = bar_rect.bottom() - line_height
-                local_rect = QRectF(bar_rect.left(), line_top, local_width, line_height)
-                painter.setBrush(QBrush(QColor(Colors.PROGRESS_LOCAL)))
-                # Un léger arrondi de 1 pixel pour suivre la forme de la barre principale
-                painter.drawRoundedRect(local_rect, 1, 1)
-
-        # 5. Texte à droite
-        painter.setPen(QColor(Colors.TEXT_PRIMARY))
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
-
-        painter.restore()
+from ui.components.progress_delegate import ProgressDelegate
 
 
 class ContentView(QWidget):
@@ -142,11 +54,10 @@ class ContentView(QWidget):
     def _load_local_cache(self) -> dict:
         """Charge le cache local des épisodes (anime_db.json)."""
         try:
-            # S'adapte selon l'emplacement (cache/ ou test/)
             base_path = Path(__file__).resolve().parent.parent.parent
             cache_path = base_path / "cache" / "anime_db.json"
             if not cache_path.exists():
-                cache_path = base_path / "test" / "anime_db.json"  # Fallback si test
+                cache_path = base_path / "test" / "anime_db.json"
 
             if cache_path.exists():
                 with open(cache_path, "r", encoding="utf-8") as f:
@@ -156,16 +67,13 @@ class ContentView(QWidget):
         return {}
 
     def _get_local_episodes_count(self, anime_title: str) -> int:
-        """Calcule le nombre d'épisodes disponibles en local pour un titre donné."""
         if not self.local_cache_data or not anime_title:
             return 0
 
-        # Recherche exacte ou correspondance insensible à la casse / flexible dans le cache
         matched_entry = None
         if anime_title in self.local_cache_data:
             matched_entry = self.local_cache_data[anime_title]
         else:
-            # Recherche souple si le nom diffère légèrement
             for key in self.local_cache_data:
                 if key.lower() in anime_title.lower() or anime_title.lower() in key.lower():
                     matched_entry = self.local_cache_data[key]
@@ -174,7 +82,6 @@ class ContentView(QWidget):
         if not matched_entry:
             return 0
 
-        # Somme des épisodes trouvés à travers toutes les saisons pour cet animé
         total_local = 0
         for season_name, season_data in matched_entry.items():
             if isinstance(season_data, dict) and "episodes" in season_data:
@@ -232,6 +139,9 @@ class ContentView(QWidget):
         table.setColumnCount(len(self.columns_config))
         table.setHorizontalHeaderLabels([tr.get(col["key"]) for col in self.columns_config])
 
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+
         table.setStyleSheet(f"""
             QTableWidget {{
                 background-color: {Colors.BG_MAIN};
@@ -239,6 +149,19 @@ class ContentView(QWidget):
                 gridline-color: {Colors.BORDER_COLOR};
                 border: none;
                 border-radius: 6px;
+                selection-background-color: {Colors.BG_SURFACE};
+                outline: none;
+            }}
+            QTableWidget::item {{
+                border: none;
+            }}
+            QTableWidget::item:selected {{
+                background-color: {Colors.BG_SURFACE};
+                color: {Colors.TEXT_PRIMARY};
+            }}
+            QTableWidget::item:focus {{
+                border: none;
+                outline: none;
             }}
             QHeaderView::section {{
                 background-color: {Colors.BG_DARKER};
@@ -285,14 +208,13 @@ class ContentView(QWidget):
             total_episodes = node.get("num_episodes", 0) or 0
             user_status = list_status.get("status", status_id)
 
-            # Récupération du nombre d'épisodes dispo en local depuis le cache
             local_episodes = self._get_local_episodes_count(anime_title)
 
             progress_item = QTableWidgetItem()
             progress_item.setData(Qt.ItemDataRole.UserRole, {
                 "watched": watched,
                 "total": total_episodes,
-                "local": local_episodes,  # 👈 Injecté ici pour la barre rouge !
+                "local": local_episodes,
                 "season_progress": 0.0,
                 "status": user_status
             })
