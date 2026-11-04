@@ -25,7 +25,7 @@ class ContentView(QWidget):
     super().__init__(parent)
     self.setStyleSheet(f"background-color: {Colors.BG_MAIN};")
 
-    self.local_db_data = self._load_test_database()
+    self.local_db_data = self._load_mal_database()
     self.local_cache_data = self._load_local_cache()
 
     self.tabs_data = [
@@ -121,35 +121,34 @@ class ContentView(QWidget):
 
     self._init_ui()
 
-  def _load_test_database(self) -> list:
+  def _load_mal_database(self) -> list:
+    """Charge la base de données MAL depuis le cache local (anime_db_mal.json)."""
     try:
-      test_file_path = (
+      mal_file_path = (
           Path(__file__).resolve().parent.parent.parent
-          / "test"
-          / "api_test.json"
+          / "cache"
+          / "anime_db_mal.json"
       )
-      if test_file_path.exists():
-        with open(test_file_path, "r", encoding="utf-8") as f:
+      if mal_file_path.exists():
+        with open(mal_file_path, "r", encoding="utf-8") as f:
           content = json.load(f)
           return content.get("data", [])
     except Exception as e:
-      print(f"[TEST WARNING] Impossible de charger le fichier de test MAL: {e}")
+      print(f"[MAL WARNING] Impossible de charger le fichier MAL anime_db_mal.json: {e}")
     return []
 
   def _load_local_cache(self) -> dict:
-    """Charge le cache local des épisodes (anime_db.json)."""
-    try:
-      base_path = Path(__file__).resolve().parent.parent.parent
-      cache_path = base_path / "cache" / "anime_db.json"
-      if not cache_path.exists():
-        cache_path = base_path / "test" / "anime_db.json"
+      """Charge le cache local des épisodes (anime_db_local.json)."""
+      try:
+          base_path = Path(__file__).resolve().parent.parent.parent
+          cache_path = base_path / "cache" / "anime_db_local.json"
 
-      if cache_path.exists():
-        with open(cache_path, "r", encoding="utf-8") as f:
-          return json.load(f)
-    except Exception as e:
-      print(f"[TEST WARNING] Impossible de charger le cache local anime_db.json: {e}")
-    return {}
+          if cache_path.exists():
+              with open(cache_path, "r", encoding="utf-8") as f:
+                  return json.load(f)
+      except Exception as e:
+          print(f"[CACHE WARNING] Impossible de charger le cache local anime_db_local.json: {e}")
+      return {}
 
   def _get_local_episodes_count(self, anime_title: str) -> int:
     if not self.local_cache_data or not anime_title:
@@ -283,7 +282,7 @@ class ContentView(QWidget):
     v_header = table.verticalHeader()
     v_header.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
     v_header.setDefaultSectionSize(36)
-    v_header.setVisible(False)  # 👈 C'est ici qu'on retire la colonne des numéros !
+    v_header.setVisible(False)
 
     table.setItemDelegateForColumn(1, ProgressDelegate(table))
 

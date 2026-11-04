@@ -4,7 +4,8 @@ from PyQt6.QtGui import QIcon
 from pathlib import Path
 from ui.colors import Colors
 from utils.translator import tr
-from ui.components.settings_window import SettingsWindow  # 👈 Import propre de la modale
+from ui.components.settings_window import SettingsWindow
+from core.scanner import LocalAnimeScanner  # 👈 Import de ton scanner
 
 
 class Header(QWidget):
@@ -19,6 +20,10 @@ class Header(QWidget):
         """)
 
         self._init_ui()
+
+    def _init_up(self):
+        # ... (garde le reste de ta méthode _init_ui telle quelle)
+        pass
 
     def _init_ui(self):
         layout = QHBoxLayout(self)
@@ -45,7 +50,6 @@ class Header(QWidget):
 
         layout.addSpacing(20)
 
-        # Style commun pour les boutons icônes du header basé sur colors.py
         icon_btn_style = f"""
             QPushButton {{
                 background-color: {Colors.BG_SURFACE};
@@ -60,7 +64,6 @@ class Header(QWidget):
             }}
         """
 
-        # Chemin propre vers le dossier d'icônes avec pathlib (zéro warning !)
         icons_dir = Path(__file__).resolve().parent.parent.parent / "assets" / "icons"
 
         # 2. Bouton 1 : Actualisation MAL (Update)
@@ -94,7 +97,17 @@ class Header(QWidget):
         print("[API] Rafraîchissement MAL demandé (Placeholder)")
 
     def _on_scan_local_clicked(self):
-        print("[Local] Scan du dossier demandé (Placeholder)")
+        """Lance le scan du dossier d'animés local et met à jour le cache JSON."""
+        print("[Local] Lancement du scan du dossier d'animés...")
+        target_path = r"D:\Vidéos\Animé"
+
+        # Initialisation et exécution du scanner
+        scanner = LocalAnimeScanner(target_path=target_path, cache_file="cache/anime_db_local.json")
+        if scanner.scan():
+            scanner.save_cache()
+            print("[Local] Scan terminé et fichier 'cache/anime_db_local.json' mis à jour avec succès !")
+        else:
+            print("[-] Erreur lors du scan local.")
 
     def _open_settings(self):
         """Ouvre la fenêtre modale des paramètres."""

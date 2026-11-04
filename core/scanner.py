@@ -6,7 +6,7 @@ from core.parser import AnimeFilenameParser
 class LocalAnimeScanner:
     """Gère le scan du dossier d'animés et la persistance de la BDD JSON locale."""
 
-    def __init__(self, target_path: str, cache_file: str = "cache/anime_db.json"):
+    def __init__(self, target_path: str, cache_file: str = "cache/anime_db_local.json"):
         self.target_path = Path(target_path)
         self.cache_file = Path(cache_file)
         self.database = {}
