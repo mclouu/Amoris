@@ -1,7 +1,89 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QTableWidget, QHeaderView, QMenu
-from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget, QTableWidget, QHeaderView, QMenu, QTableWidgetItem, \
+    QStyledItemDelegate
+from PyQt6.QtCore import Qt, QPoint, QRectF
+from PyQt6.QtGui import QColor, QPainter, QPen, QBrush
+import json
+from pathlib import Path
 from ui.colors import Colors
-from utils.translator import tr  # 👈 Import de notre traducteur
+from utils.translator import tr
+
+
+class ProgressDelegate(QStyledItemDelegate):
+    """Délégué personnalisé pour dessiner la barre de progression et le texte à droite."""
+
+    def paint(self, painter: QPainter, option, index):
+        painter.save()
+
+        data = index.data(Qt.ItemDataRole.UserRole)
+        if not data:
+            super().paint(painter, option, index)
+            painter.restore()
+            return
+
+        watched = data.get("watched", 0)
+        total = data.get("total", 0)
+        local = data.get("local", 0)
+        season_prog = data.get("season_progress", 0.0)
+
+        rect = option.rect
+
+        # Format du texte (ex: 17/?)
+        total_str = str(total) if total and total > 0 else "?"
+        text = f"{watched}/{total_str}"
+
+        # Calcul de la largeur réservée pour le texte à droite (environ 45-50 pixels)
+        text_width = 45
+        padding_right = 10
+
+        # Rectangle de la barre (laissé un peu plus court à droite pour laisser de la place au texte)
+        bar_height = 14
+        margin_v = (rect.height() - bar_height) // 2
+        bar_width = rect.width() - text_width - padding_right - 12
+        bar_rect = QRectF(rect.left() + 8, rect.top() + margin_v, bar_width, bar_height)
+
+        # Rectangle pour le texte à droite de la barre
+        text_rect = QRectF(
+            bar_rect.right() + padding_right,
+            rect.top(),
+            text_width,
+            rect.height()
+        )
+
+        # 1. Dessin du fond de la barre (PROGRESS_BG)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(QColor(Colors.PROGRESS_BG)))
+        painter.drawRoundedRect(bar_rect, 3, 3)
+
+        max_val = total if total and total > 0 else max(watched, local, 1)
+
+        # 2. Dessin de la progression de la saison
+        if season_prog > 0:
+            season_width = bar_rect.width() * min(season_prog, 1.0)
+            season_rect = QRectF(bar_rect.left(), bar_rect.top(), season_width, bar_rect.height())
+            painter.setBrush(QBrush(QColor(Colors.PROGRESS_SEASON)))
+            painter.drawRoundedRect(season_rect, 3, 3)
+
+        # 3. Dessin des épisodes locaux (Rouge)
+        if local > 0:
+            local_width = bar_rect.width() * min(local / max_val, 1.0)
+            local_rect = QRectF(bar_rect.left(), bar_rect.top(), local_width, bar_rect.height())
+            painter.setBrush(QBrush(QColor(Colors.PROGRESS_LOCAL)))
+            painter.drawRoundedRect(local_rect, 3, 3)
+
+        # 4. Dessin des épisodes vus (Vert/Teal)
+        if watched > 0:
+            watched_width = bar_rect.width() * min(watched / max_val, 1.0)
+            watched_rect = QRectF(bar_rect.left(), bar_rect.top(), watched_width, bar_rect.height())
+            painter.setBrush(QBrush(QColor(Colors.PROGRESS_WATCHED)))
+            painter.drawRoundedRect(watched_rect, 3, 3)
+
+        # 5. Dessin du texte à droite de la barre
+        painter.setPen(QColor(Colors.TEXT_PRIMARY))
+        # Optionnel : rendre un peu plus discret le '?' si le total est inconnu
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
+
+        painter.restore()
 
 
 class ContentView(QWidget):
@@ -11,22 +93,22 @@ class ContentView(QWidget):
         super().__init__(parent)
         self.setStyleSheet(f"background-color: {Colors.BG_MAIN};")
 
-        # Définition des catégories d'animés avec leurs clés i18n et compteurs
+        self.local_db_data = self._load_test_database()
+
         self.tabs_data = [
-            {"id": "watching", "key": "tab_watching", "count": 59},
-            {"id": "completed", "key": "tab_completed", "count": 344},
-            {"id": "on_hold", "key": "tab_on_hold", "count": 36},
-            {"id": "dropped", "key": "tab_dropped", "count": 91},
-            {"id": "plan_to_watch", "key": "tab_plan_to_watch", "count": 144},
+            {"id": "watching", "key": "tab_watching", "count": self._count_by_status("watching")},
+            {"id": "completed", "key": "tab_completed", "count": self._count_by_status("completed")},
+            {"id": "on_hold", "key": "tab_on_hold", "count": self._count_by_status("on_hold")},
+            {"id": "dropped", "key": "tab_dropped", "count": self._count_by_status("dropped")},
+            {"id": "plan_to_watch", "key": "tab_plan_to_watch", "count": self._count_by_status("plan_to_watch")},
         ]
 
-        # Définition de toutes les colonnes disponibles avec leurs clés i18n
         self.columns_config = [
             {"id": "title", "key": "col_title", "default_visible": True, "default_width": 320},
-            {"id": "progress", "key": "col_progress", "default_visible": True, "default_width": 320},
+            {"id": "progress", "key": "col_progress", "default_visible": True, "default_width": 200},
             {"id": "season", "key": "col_season", "default_visible": True, "default_width": 110},
             {"id": "score", "key": "col_score", "default_visible": True, "default_width": 80},
-            {"id": "last_updated", "key": "col_last_updated", "default_visible": True, "default_width": 130},
+            {"id": "last_updated", "key": "col_last_updated", "default_visible": True, "default_width": 150},
             {"id": "average_score", "key": "col_average_score", "default_visible": False, "default_width": 100},
             {"id": "type", "key": "col_type", "default_visible": False, "default_width": 80},
             {"id": "date_started", "key": "col_date_started", "default_visible": False, "default_width": 110},
@@ -36,11 +118,27 @@ class ContentView(QWidget):
 
         self._init_ui()
 
+    def _load_test_database(self) -> list:
+        try:
+            test_file_path = Path(__file__).resolve().parent.parent.parent / "test" / "api_test.json"
+            if test_file_path.exists():
+                with open(test_file_path, "r", encoding="utf-8") as f:
+                    content = json.load(f)
+                    return content.get("data", [])
+        except Exception as e:
+            print(f"[TEST WARNING] Impossible de charger le fichier de test: {e}")
+        return []
+
+    def _count_by_status(self, status_id: str) -> int:
+        return sum(
+            1 for item in self.local_db_data
+            if item.get("list_status", {}).get("status") == status_id
+        )
+
     def _init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
 
-        # Création du composant d'onglets (QTabWidget)
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet(f"""
             QTabWidget::pane {{
@@ -66,24 +164,19 @@ class ContentView(QWidget):
             }}
         """)
 
-        # Dictionnaire pour garder une référence sur nos tables par onglet
         self.tables = {}
 
-        # Génération dynamique des onglets avec traduction et formatage du compteur
         for tab_info in self.tabs_data:
             tab_name = tr.get(tab_info['key'], count=tab_info['count'])
-            table_widget = self._create_table()
+            table_widget = self._create_table_for_status(tab_info['id'])
             self.tabs.addTab(table_widget, tab_name)
             self.tables[tab_info['id']] = table_widget
 
         layout.addWidget(self.tabs)
 
-    def _create_table(self) -> QTableWidget:
-        """Crée et retourne une instance de tableau configurée avec toutes nos options."""
+    def _create_table_for_status(self, status_id: str) -> QTableWidget:
         table = QTableWidget()
         table.setColumnCount(len(self.columns_config))
-
-        # Récupération des labels traduits pour les en-têtes
         table.setHorizontalHeaderLabels([tr.get(col["key"]) for col in self.columns_config])
 
         table.setStyleSheet(f"""
@@ -111,9 +204,60 @@ class ContentView(QWidget):
         header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         header.customContextMenuRequested.connect(lambda pos, t=table: self._show_header_context_menu(pos, t))
 
-        # Applique les largeurs et visibilités par défaut
-        self._reset_table_to_defaults(table)
+        v_header = table.verticalHeader()
+        v_header.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        v_header.setDefaultSectionSize(36)
 
+        # Application du délégué personnalisé sur la colonne Progression (index 1)
+        table.setItemDelegateForColumn(1, ProgressDelegate(table))
+
+        filtered_items = [
+            item for item in self.local_db_data
+            if item.get("list_status", {}).get("status") == status_id
+        ]
+
+        table.setRowCount(len(filtered_items))
+        for row_idx, anime_entry in enumerate(filtered_items):
+            node = anime_entry.get("node", {})
+            list_status = anime_entry.get("list_status", {})
+
+            def create_read_only_item(text: str) -> QTableWidgetItem:
+                item = QTableWidgetItem(text)
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                return item
+
+            # Colonne 0 : Titre
+            table.setItem(row_idx, 0, create_read_only_item(node.get("title", "Unknown")))
+
+            # Colonne 1 : Progression (On injecte les données structurées via UserRole)
+            watched = list_status.get("num_episodes_watched", 0)
+            total_episodes = node.get("num_episodes", 0)  # Récupéré si présent dans le JSON, sinon 0 / inconnu
+
+            progress_item = QTableWidgetItem()
+            progress_item.setData(Qt.ItemDataRole.UserRole, {
+                "watched": watched,
+                "total": total_episodes,
+                "local": 0,  # Sera branché plus tard avec le scanner local
+                "season_progress": 0.0  # Sera branché plus tard avec la date/saison
+            })
+            progress_item.setFlags(progress_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            table.setItem(row_idx, 1, progress_item)
+
+            # Colonne 2 : Saison
+            table.setItem(row_idx, 2, create_read_only_item("-"))
+
+            # Colonne 3 : Score
+            score = list_status.get("score", 0)
+            table.setItem(row_idx, 3, create_read_only_item(str(score)))
+
+            # Colonne 4 : Dernière mise à jour
+            updated_at = list_status.get("updated_at", "-")
+            table.setItem(row_idx, 4, create_read_only_item(updated_at))
+
+            for col_i in range(5, len(self.columns_config)):
+                table.setItem(row_idx, col_i, create_read_only_item("-"))
+
+        self._reset_table_to_defaults(table)
         return table
 
     def _reset_table_to_defaults(self, table: QTableWidget):
@@ -156,27 +300,21 @@ class ContentView(QWidget):
 
         for index, col in enumerate(self.columns_config):
             is_visible = not table.isColumnHidden(index)
-            # Utilisation de la traduction pour chaque item du menu
             action = menu.addAction(tr.get(col["key"]))
             action.setCheckable(True)
             action.setChecked(is_visible)
             action.triggered.connect(lambda checked, idx=index, t=table: t.setColumnHidden(idx, not checked))
 
         menu.addSeparator()
-
         reset_action = menu.addAction(tr.get("menu_reset_defaults"))
         reset_action.triggered.connect(lambda: self._reset_table_to_defaults(table))
 
-        header_global_pos = header.mapToGlobal(pos)
-        menu.exec(header_global_pos)
+        menu.exec(header.mapToGlobal(pos))
 
     def retranslate_ui(self):
-        """Met à jour les textes des onglets et des colonnes du tableau."""
-        # 1. Mise à jour des onglets
         for index, tab_info in enumerate(self.tabs_data):
             new_tab_name = tr.get(tab_info['key'], count=tab_info['count'])
             self.tabs.setTabText(index, new_tab_name)
 
-        # 2. Mise à jour des en-têtes de tous les tableaux actifs
         for table in self.tables.values():
             table.setHorizontalHeaderLabels([tr.get(col["key"]) for col in self.columns_config])

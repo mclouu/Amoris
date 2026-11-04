@@ -18,3 +18,9 @@ class Colors:
 
     # Bordures
     BORDER_COLOR = "#313244"
+
+    # 📊 Barre de progression (Style Taiga)
+    PROGRESS_BG = "#45475a"  # Fond neutre de la barre
+    PROGRESS_WATCHED = "#a6e3a1"  # Épisodes vus (vert)
+    PROGRESS_LOCAL = "#f38ba8"  # Épisodes dispos en local (rouge)
+    PROGRESS_SEASON = "#fab387"  # Progression de la saison (orange/jaune)

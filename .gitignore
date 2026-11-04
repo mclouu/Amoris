@@ -47,3 +47,6 @@ Thumbs.db
 
 # Cache & Database locales
 cache/
+test/
+postman/
+/.postman/resources.yaml
