@@ -24,24 +24,25 @@ class ProgressDelegate(QStyledItemDelegate):
         total = data.get("total", 0)
         local = data.get("local", 0)
         season_prog = data.get("season_progress", 0.0)
+        status = data.get("status", "")
 
         rect = option.rect
 
-        # Format du texte (ex: 17/?)
-        total_str = str(total) if total and total > 0 else "?"
+        if status == "completed":
+            display_total = total if total > 0 else watched
+            total_str = str(display_total)
+        else:
+            total_str = str(total) if total and total > 0 else "?"
+
         text = f"{watched}/{total_str}"
 
-        # Calcul de la largeur réservée pour le texte à droite (environ 45-50 pixels)
         text_width = 45
         padding_right = 10
-
-        # Rectangle de la barre (laissé un peu plus court à droite pour laisser de la place au texte)
         bar_height = 14
         margin_v = (rect.height() - bar_height) // 2
         bar_width = rect.width() - text_width - padding_right - 12
         bar_rect = QRectF(rect.left() + 8, rect.top() + margin_v, bar_width, bar_height)
 
-        # Rectangle pour le texte à droite de la barre
         text_rect = QRectF(
             bar_rect.right() + padding_right,
             rect.top(),
@@ -49,7 +50,6 @@ class ProgressDelegate(QStyledItemDelegate):
             rect.height()
         )
 
-        # 1. Dessin du fond de la barre (PROGRESS_BG)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QBrush(QColor(Colors.PROGRESS_BG)))
@@ -57,30 +57,25 @@ class ProgressDelegate(QStyledItemDelegate):
 
         max_val = total if total and total > 0 else max(watched, local, 1)
 
-        # 2. Dessin de la progression de la saison
         if season_prog > 0:
             season_width = bar_rect.width() * min(season_prog, 1.0)
             season_rect = QRectF(bar_rect.left(), bar_rect.top(), season_width, bar_rect.height())
             painter.setBrush(QBrush(QColor(Colors.PROGRESS_SEASON)))
             painter.drawRoundedRect(season_rect, 3, 3)
 
-        # 3. Dessin des épisodes locaux (Rouge)
         if local > 0:
             local_width = bar_rect.width() * min(local / max_val, 1.0)
             local_rect = QRectF(bar_rect.left(), bar_rect.top(), local_width, bar_rect.height())
             painter.setBrush(QBrush(QColor(Colors.PROGRESS_LOCAL)))
             painter.drawRoundedRect(local_rect, 3, 3)
 
-        # 4. Dessin des épisodes vus (Vert/Teal)
         if watched > 0:
             watched_width = bar_rect.width() * min(watched / max_val, 1.0)
             watched_rect = QRectF(bar_rect.left(), bar_rect.top(), watched_width, bar_rect.height())
             painter.setBrush(QBrush(QColor(Colors.PROGRESS_WATCHED)))
             painter.drawRoundedRect(watched_rect, 3, 3)
 
-        # 5. Dessin du texte à droite de la barre
         painter.setPen(QColor(Colors.TEXT_PRIMARY))
-        # Optionnel : rendre un peu plus discret le '?' si le total est inconnu
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
 
         painter.restore()
@@ -208,7 +203,6 @@ class ContentView(QWidget):
         v_header.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         v_header.setDefaultSectionSize(36)
 
-        # Application du délégué personnalisé sur la colonne Progression (index 1)
         table.setItemDelegateForColumn(1, ProgressDelegate(table))
 
         filtered_items = [
@@ -226,41 +220,39 @@ class ContentView(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 return item
 
-            # Colonne 0 : Titre
             table.setItem(row_idx, 0, create_read_only_item(node.get("title", "Unknown")))
 
-            # Colonne 1 : Progression (On injecte les données structurées via UserRole)
             watched = list_status.get("num_episodes_watched", 0)
-            total_episodes = node.get("num_episodes", 0)  # Récupéré si présent dans le JSON, sinon 0 / inconnu
+            total_episodes = node.get("num_episodes", 0) or 0
+            user_status = list_status.get("status", status_id)
 
             progress_item = QTableWidgetItem()
             progress_item.setData(Qt.ItemDataRole.UserRole, {
                 "watched": watched,
                 "total": total_episodes,
-                "local": 0,  # Sera branché plus tard avec le scanner local
-                "season_progress": 0.0  # Sera branché plus tard avec la date/saison
+                "local": 0,
+                "season_progress": 0.0,
+                "status": user_status
             })
             progress_item.setFlags(progress_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             table.setItem(row_idx, 1, progress_item)
 
-            # Colonne 2 : Saison
             table.setItem(row_idx, 2, create_read_only_item("-"))
 
-            # Colonne 3 : Score
             score = list_status.get("score", 0)
             table.setItem(row_idx, 3, create_read_only_item(str(score)))
 
-            # Colonne 4 : Dernière mise à jour
             updated_at = list_status.get("updated_at", "-")
             table.setItem(row_idx, 4, create_read_only_item(updated_at))
 
             for col_i in range(5, len(self.columns_config)):
                 table.setItem(row_idx, col_i, create_read_only_item("-"))
 
-        self._reset_table_to_defaults(table)
+        self._apply_global_columns_visibility(table)
         return table
 
-    def _reset_table_to_defaults(self, table: QTableWidget):
+    def _apply_global_columns_visibility(self, table: QTableWidget):
+        """Applique la configuration par défaut des largeurs et de visibilité."""
         header = table.horizontalHeader()
         for logical_index in range(len(self.columns_config)):
             visual_index = header.visualIndex(logical_index)
@@ -270,6 +262,26 @@ class ContentView(QWidget):
         for index, col in enumerate(self.columns_config):
             table.setColumnWidth(index, col["default_width"])
             table.setColumnHidden(index, not col["default_visible"])
+
+    def _set_column_visible_globally(self, index: int, visible: bool):
+        """Modifie la visibilité d'une colonne sur TOUS les tableaux de manière synchrone."""
+        self.columns_config[index]["default_visible"] = visible
+        for table in self.tables.values():
+            table.setColumnHidden(index, not visible)
+
+    def _reset_all_tables_to_defaults(self):
+        """Rétablit les valeurs par défaut sur l'ensemble des onglets."""
+        for col in self.columns_config:
+            col["default_visible"] = col["id"] in ["title", "progress", "season", "score",
+                                                   "last_updated"]  # ou selon tes choix par défaut initiaux
+
+        # Plus simple : on réinitialise via la configuration initiale définie dans __init__
+        defaults = [True, True, True, True, True, False, False, False, False, False]
+        for idx, visible in enumerate(defaults):
+            self.columns_config[idx]["default_visible"] = visible
+
+        for table in self.tables.values():
+            self._apply_global_columns_visibility(table)
 
     def _show_header_context_menu(self, pos: QPoint, table: QTableWidget):
         header = table.horizontalHeader()
@@ -303,11 +315,12 @@ class ContentView(QWidget):
             action = menu.addAction(tr.get(col["key"]))
             action.setCheckable(True)
             action.setChecked(is_visible)
-            action.triggered.connect(lambda checked, idx=index, t=table: t.setColumnHidden(idx, not checked))
+            # On appelle la méthode globale au lieu de modifier juste un tableau
+            action.triggered.connect(lambda checked, idx=index: self._set_column_visible_globally(idx, checked))
 
         menu.addSeparator()
         reset_action = menu.addAction(tr.get("menu_reset_defaults"))
-        reset_action.triggered.connect(lambda: self._reset_table_to_defaults(table))
+        reset_action.triggered.connect(self._reset_all_tables_to_defaults)
 
         menu.exec(header.mapToGlobal(pos))
 
