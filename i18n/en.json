@@ -1,16 +1,20 @@
 {
+  "_comment_global": "🌐 GLOBAL / MAIN WINDOW (main_window.py)",
   "app_title": "Amoris",
+
+  "_comment_header": "🔍 HEADER & ACTIONS (header.py)",
   "search_placeholder": "🔍 Search an anime...",
+  "tooltip_refresh": "Force MyAnimeList API synchronization",
+  "tooltip_scan": "Rescan local directory",
+  "tooltip_settings": "Settings",
+
+  "_comment_content": "📑 TABS & TABLE COLUMNS (content_view.py)",
   "tab_watching": "Watching ({count})",
   "tab_completed": "Completed ({count})",
   "tab_on_hold": "On hold ({count})",
   "tab_dropped": "Dropped ({count})",
   "tab_plan_to_watch": "Plan to watch ({count})",
-  "tooltip_refresh": "Force MyAnimeList API synchronization",
-  "tooltip_scan": "Rescan local directory",
-  "tooltip_settings": "Settings",
-  "settings_title": "Settings - Amoris",
-  "settings_placeholder": "🛠️ Settings Panel (Coming soon)",
+
   "col_title": "Anime title",
   "col_progress": "Progress",
   "col_season": "Season",
@@ -22,9 +26,12 @@
   "col_date_completed": "Date completed",
   "col_notes": "Notes",
   "menu_reset_defaults": "Reset to defaults",
+  "unknown_title": "Unknown",
 
+  "_comment_settings": "⚙️ SETTINGS WINDOW (settings_window.py)",
+  "settings_title": "Settings - Amoris",
   "settings_cat_language": "Language",
   "settings_cat_theme": "Theme",
-  "settings_theme_placeholder": "🛠️ Theme Panel (Coming soon)",
-  "settings_lang_label": "Choose application language:"
+  "settings_lang_label": "Choose application language:",
+  "settings_theme_placeholder": "🛠️ Theme Panel (Coming soon)"
 }

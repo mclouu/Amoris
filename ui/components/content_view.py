@@ -220,7 +220,8 @@ class ContentView(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 return item
 
-            table.setItem(row_idx, 0, create_read_only_item(node.get("title", "Unknown")))
+            # Texte externalisé pour le titre par défaut
+            table.setItem(row_idx, 0, create_read_only_item(node.get("title", tr.get("unknown_title"))))
 
             watched = list_status.get("num_episodes_watched", 0)
             total_episodes = node.get("num_episodes", 0) or 0
@@ -252,7 +253,6 @@ class ContentView(QWidget):
         return table
 
     def _apply_global_columns_visibility(self, table: QTableWidget):
-        """Applique la configuration par défaut des largeurs et de visibilité."""
         header = table.horizontalHeader()
         for logical_index in range(len(self.columns_config)):
             visual_index = header.visualIndex(logical_index)
@@ -264,18 +264,11 @@ class ContentView(QWidget):
             table.setColumnHidden(index, not col["default_visible"])
 
     def _set_column_visible_globally(self, index: int, visible: bool):
-        """Modifie la visibilité d'une colonne sur TOUS les tableaux de manière synchrone."""
         self.columns_config[index]["default_visible"] = visible
         for table in self.tables.values():
             table.setColumnHidden(index, not visible)
 
     def _reset_all_tables_to_defaults(self):
-        """Rétablit les valeurs par défaut sur l'ensemble des onglets."""
-        for col in self.columns_config:
-            col["default_visible"] = col["id"] in ["title", "progress", "season", "score",
-                                                   "last_updated"]  # ou selon tes choix par défaut initiaux
-
-        # Plus simple : on réinitialise via la configuration initiale définie dans __init__
         defaults = [True, True, True, True, True, False, False, False, False, False]
         for idx, visible in enumerate(defaults):
             self.columns_config[idx]["default_visible"] = visible
@@ -315,7 +308,6 @@ class ContentView(QWidget):
             action = menu.addAction(tr.get(col["key"]))
             action.setCheckable(True)
             action.setChecked(is_visible)
-            # On appelle la méthode globale au lieu de modifier juste un tableau
             action.triggered.connect(lambda checked, idx=index: self._set_column_visible_globally(idx, checked))
 
         menu.addSeparator()
