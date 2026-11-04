@@ -1,15 +1,16 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QPushButton
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QIcon
 from pathlib import Path
 from ui.colors import Colors
 from utils.translator import tr
 from ui.components.settings_window import SettingsWindow
-from core.scanner import LocalAnimeScanner  # 👈 Import de ton scanner
+from core.scanner import LocalAnimeScanner
 
 
 class Header(QWidget):
     """En-tête principal de l'application contenant la recherche et les actions globales."""
+    local_scan_finished = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -20,10 +21,6 @@ class Header(QWidget):
         """)
 
         self._init_ui()
-
-    def _init_up(self):
-        # ... (garde le reste de ta méthode _init_ui telle quelle)
-        pass
 
     def _init_ui(self):
         layout = QHBoxLayout(self)
@@ -101,11 +98,11 @@ class Header(QWidget):
         print("[Local] Lancement du scan du dossier d'animés...")
         target_path = r"D:\Vidéos\Animé"
 
-        # Initialisation et exécution du scanner
         scanner = LocalAnimeScanner(target_path=target_path, cache_file="cache/anime_db_local.json")
         if scanner.scan():
             scanner.save_cache()
             print("[Local] Scan terminé et fichier 'cache/anime_db_local.json' mis à jour avec succès !")
+            self.local_scan_finished.emit()
         else:
             print("[-] Erreur lors du scan local.")
 

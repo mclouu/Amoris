@@ -8,7 +8,7 @@
   "tooltip_scan": "Rescan local directory",
   "tooltip_settings": "Settings",
 
-  "_comment_content": "📑 TABS & TABLE COLUMNS (content_view.py)",
+  "_comment_content": "📑 TABS & TABLE COLUMNS (content_view.py & anime_table_factory.py)",
   "tab_watching": "Watching ({count})",
   "tab_completed": "Completed ({count})",
   "tab_on_hold": "On hold ({count})",
@@ -27,6 +27,8 @@
   "col_notes": "Notes",
   "menu_reset_defaults": "Reset to defaults",
   "unknown_title": "Unknown",
+  "menu_open_folder": "Open Folder",
+  "dialog_select_folder": "Select folder for: {anime_title}",
 
   "_comment_settings": "⚙️ SETTINGS WINDOW (settings_window.py)",
   "settings_title": "Settings - Amoris",

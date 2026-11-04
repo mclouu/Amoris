@@ -8,7 +8,7 @@
   "tooltip_scan": "Relancer le scan du dossier local",
   "tooltip_settings": "Paramètres",
 
-  "_comment_content": "📑 ONGLETS & COLONNES DE TABLEAUX (content_view.py)",
+  "_comment_content": "📑 ONGLETS & COLONNES DE TABLEAUX (content_view.py & anime_table_factory.py)",
   "tab_watching": "En cours ({count})",
   "tab_completed": "Terminés ({count})",
   "tab_on_hold": "En pause ({count})",
@@ -27,6 +27,8 @@
   "col_notes": "Notes",
   "menu_reset_defaults": "Rétablir les valeurs par défaut",
   "unknown_title": "Inconnu",
+  "menu_open_folder": "Ouvrir le dossier",
+  "dialog_select_folder": "Sélectionner le dossier pour : {anime_title}",
 
   "_comment_settings": "⚙️ FENÊTRE DES PARAMÈTRES (settings_window.py)",
   "settings_title": "Paramètres - Amoris",

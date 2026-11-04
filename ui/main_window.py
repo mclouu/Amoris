@@ -6,8 +6,9 @@ import os
 from utils.cover_downloader import CoverDownloaderThread
 from ui.components.menu_side import SideMenu
 from ui.components.content_view import ContentView
-from ui.components.header import Header  # 👈 Import de ton header (vérifie le nom de ton fichier header)
+from ui.components.header import Header
 from ui.colors import Colors
+from utils.translator import tr
 
 
 class MainWindow(QMainWindow):
@@ -16,7 +17,7 @@ class MainWindow(QMainWindow):
 
         self.anime_widgets = {}
 
-        self.setWindowTitle("Amoris")
+        self.setWindowTitle(tr.get("app_title"))
         self.resize(1100, 700)
         self.setStyleSheet(f"background-color: {Colors.BG_MAIN};")
 
@@ -53,11 +54,32 @@ class MainWindow(QMainWindow):
         # Ajout du conteneur de droite dans le layout principal
         main_layout.addWidget(right_container, stretch=1)
 
-        # Connexion
+        # Connexions
         self.content_view.anime_selected.connect(self.side_menu.set_image)
 
+        # 🚀 Connexion du signal de scan du Header pour rafraîchir les données en direct !
+        self.header.local_scan_finished.connect(self.reload_local_data)
+
+    def reload_local_data(self):
+        """Recharge les données locales et met à jour l'interface des tableaux sans redémarrer."""
+        print("[UI] Rechargement du cache local et rafraîchissement des tableaux...")
+
+        self.content_view.local_cache_data = self.content_view.cache_repo.load_local_cache()
+
+        central_layout = self.centralWidget().layout()
+        right_container = central_layout.itemAt(1).widget()
+        right_layout = right_container.layout()
+
+        right_layout.removeWidget(self.content_view)
+        self.content_view.deleteLater()
+
+        self.content_view = ContentView(self)
+        right_layout.addWidget(self.content_view, stretch=1)
+
+        self.content_view.anime_selected.connect(self.side_menu.set_image)
+        print("[UI] Interface mise à jour avec succès !")
+
     def init_image_downloader(self):
-        # 🛡️ Chemin dynamique propre basé sur Amoris (compatible GitHub & multi-user)
         root_dir = next(p for p in Path(__file__).resolve().parents if p.name == 'Amoris')
         json_path = root_dir / "cache" / "anime_db_user.json"
         output_dir = root_dir / "cache" / "img"
@@ -72,3 +94,11 @@ class MainWindow(QMainWindow):
     def update_single_anime_poster(self, anime_id):
         if str(self.side_menu.current_mal_id) == str(anime_id):
             self.side_menu.set_image(int(anime_id))
+
+    def retranslate_ui(self):
+        """Propage le changement de langue à la fenêtre principale et ses enfants."""
+        self.setWindowTitle(tr.get("app_title"))
+        if hasattr(self, "header"):
+            self.header.retranslate_ui()
+        if hasattr(self, "content_view"):
+            self.content_view.retranslate_ui()
