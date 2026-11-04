@@ -9,7 +9,7 @@ from utils.translator import tr
 
 
 class ProgressDelegate(QStyledItemDelegate):
-    """Délégué personnalisé pour dessiner la barre de progression et le texte à droite."""
+    """Délégué personnalisé pour dessiner la barre de progression, le vert (vu) et la fine ligne rouge (local)."""
 
     def paint(self, painter: QPainter, option, index):
         painter.save()
@@ -52,29 +52,43 @@ class ProgressDelegate(QStyledItemDelegate):
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setPen(Qt.PenStyle.NoPen)
+
+        # 1. Fond de la barre (Gris / PROGRESS_BG)
         painter.setBrush(QBrush(QColor(Colors.PROGRESS_BG)))
         painter.drawRoundedRect(bar_rect, 3, 3)
 
         max_val = total if total and total > 0 else max(watched, local, 1)
 
+        # 2. Progression de la saison (Orange - si applicable)
         if season_prog > 0:
             season_width = bar_rect.width() * min(season_prog, 1.0)
             season_rect = QRectF(bar_rect.left(), bar_rect.top(), season_width, bar_rect.height())
             painter.setBrush(QBrush(QColor(Colors.PROGRESS_SEASON)))
             painter.drawRoundedRect(season_rect, 3, 3)
 
-        if local > 0:
-            local_width = bar_rect.width() * min(local / max_val, 1.0)
-            local_rect = QRectF(bar_rect.left(), bar_rect.top(), local_width, bar_rect.height())
-            painter.setBrush(QBrush(QColor(Colors.PROGRESS_LOCAL)))
-            painter.drawRoundedRect(local_rect, 3, 3)
-
+        # 3. Barre principale des épisodes vus (Vert - PROGRESS_WATCHED)
+        # Elle prend toute la hauteur de la barre
         if watched > 0:
             watched_width = bar_rect.width() * min(watched / max_val, 1.0)
             watched_rect = QRectF(bar_rect.left(), bar_rect.top(), watched_width, bar_rect.height())
             painter.setBrush(QBrush(QColor(Colors.PROGRESS_WATCHED)))
             painter.drawRoundedRect(watched_rect, 3, 3)
 
+        # 4. Fine ligne rouge pour les épisodes locaux (Rouge - PROGRESS_LOCAL)
+        # Dessinée sous forme de fine bande horizontale au milieu de la barre (ex: hauteur de 4px)
+            # 4. Fine ligne rouge pour les épisodes locaux (Rouge - PROGRESS_LOCAL) collée en bas
+            # 4. Fine ligne rouge pour les épisodes locaux (Rouge - PROGRESS_LOCAL) collée tout en bas
+            if local > 0:
+                local_width = bar_rect.width() * min(local / max_val, 1.0)
+                line_height = 4  # Épaisseur de la ligne
+                # Collée strictement sur le bord inférieur du conteneur
+                line_top = bar_rect.bottom() - line_height
+                local_rect = QRectF(bar_rect.left(), line_top, local_width, line_height)
+                painter.setBrush(QBrush(QColor(Colors.PROGRESS_LOCAL)))
+                # Un léger arrondi de 1 pixel pour suivre la forme de la barre principale
+                painter.drawRoundedRect(local_rect, 1, 1)
+
+        # 5. Texte à droite
         painter.setPen(QColor(Colors.TEXT_PRIMARY))
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
 
@@ -89,6 +103,7 @@ class ContentView(QWidget):
         self.setStyleSheet(f"background-color: {Colors.BG_MAIN};")
 
         self.local_db_data = self._load_test_database()
+        self.local_cache_data = self._load_local_cache()
 
         self.tabs_data = [
             {"id": "watching", "key": "tab_watching", "count": self._count_by_status("watching")},
@@ -121,8 +136,51 @@ class ContentView(QWidget):
                     content = json.load(f)
                     return content.get("data", [])
         except Exception as e:
-            print(f"[TEST WARNING] Impossible de charger le fichier de test: {e}")
+            print(f"[TEST WARNING] Impossible de charger le fichier de test MAL: {e}")
         return []
+
+    def _load_local_cache(self) -> dict:
+        """Charge le cache local des épisodes (anime_db.json)."""
+        try:
+            # S'adapte selon l'emplacement (cache/ ou test/)
+            base_path = Path(__file__).resolve().parent.parent.parent
+            cache_path = base_path / "cache" / "anime_db.json"
+            if not cache_path.exists():
+                cache_path = base_path / "test" / "anime_db.json"  # Fallback si test
+
+            if cache_path.exists():
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"[TEST WARNING] Impossible de charger le cache local anime_db.json: {e}")
+        return {}
+
+    def _get_local_episodes_count(self, anime_title: str) -> int:
+        """Calcule le nombre d'épisodes disponibles en local pour un titre donné."""
+        if not self.local_cache_data or not anime_title:
+            return 0
+
+        # Recherche exacte ou correspondance insensible à la casse / flexible dans le cache
+        matched_entry = None
+        if anime_title in self.local_cache_data:
+            matched_entry = self.local_cache_data[anime_title]
+        else:
+            # Recherche souple si le nom diffère légèrement
+            for key in self.local_cache_data:
+                if key.lower() in anime_title.lower() or anime_title.lower() in key.lower():
+                    matched_entry = self.local_cache_data[key]
+                    break
+
+        if not matched_entry:
+            return 0
+
+        # Somme des épisodes trouvés à travers toutes les saisons pour cet animé
+        total_local = 0
+        for season_name, season_data in matched_entry.items():
+            if isinstance(season_data, dict) and "episodes" in season_data:
+                total_local += len(season_data["episodes"])
+
+        return total_local
 
     def _count_by_status(self, status_id: str) -> int:
         return sum(
@@ -220,18 +278,21 @@ class ContentView(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 return item
 
-            # Texte externalisé pour le titre par défaut
-            table.setItem(row_idx, 0, create_read_only_item(node.get("title", tr.get("unknown_title"))))
+            anime_title = node.get("title", tr.get("unknown_title"))
+            table.setItem(row_idx, 0, create_read_only_item(anime_title))
 
             watched = list_status.get("num_episodes_watched", 0)
             total_episodes = node.get("num_episodes", 0) or 0
             user_status = list_status.get("status", status_id)
 
+            # Récupération du nombre d'épisodes dispo en local depuis le cache
+            local_episodes = self._get_local_episodes_count(anime_title)
+
             progress_item = QTableWidgetItem()
             progress_item.setData(Qt.ItemDataRole.UserRole, {
                 "watched": watched,
                 "total": total_episodes,
-                "local": 0,
+                "local": local_episodes,  # 👈 Injecté ici pour la barre rouge !
                 "season_progress": 0.0,
                 "status": user_status
             })
