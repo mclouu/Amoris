@@ -3,81 +3,62 @@ from pathlib import Path
 
 
 class CacheRepository:
-    """Gère la persistance, le chargement et les requêtes sur les caches MAL et local."""
+    """Gère le chargement et la sauvegarde des caches MAL et locaux."""
 
-    def __init__(self):
-        # Résout la racine du projet (en remontant de core/ vers la racine)
-        base_path = Path(__file__).resolve().parent.parent
-        self.mal_db_path = base_path / "cache" / "anime_db_mal.json"
-        self.local_cache_path = base_path / "cache" / "anime_db_local.json"
-
-    def load_mal_database(self) -> list:
-        """Charge la base de données MAL depuis le cache local (anime_db_mal.json)."""
-        try:
-            if self.mal_db_path.exists():
-                with open(self.mal_db_path, "r", encoding="utf-8") as f:
-                    content = json.load(f)
-                    return content.get("data", [])
-        except Exception as e:
-            print(f"[MAL WARNING] Impossible de charger le fichier MAL anime_db_mal.json: {e}")
-        return []
+    def __init__(self, local_cache_path: str = "cache/anime_db_local.json", mal_db_path: str = "cache/anime_db_mal.json"):
+        self.local_cache_path = Path(local_cache_path)
+        self.mal_db_path = Path(mal_db_path)
 
     def load_local_cache(self) -> dict:
-        """Charge le cache local des épisodes (anime_db_local.json)."""
-        try:
-            if self.local_cache_path.exists():
+        if self.local_cache_path.exists():
+            try:
                 with open(self.local_cache_path, "r", encoding="utf-8") as f:
                     return json.load(f)
-        except Exception as e:
-            print(f"[CACHE WARNING] Impossible de charger le cache local anime_db_local.json: {e}")
+            except Exception as e:
+                print(f"[-] Erreur chargement cache local : {e}")
         return {}
 
-    def save_local_cache(self, local_cache_data: dict):
-        """Sauvegarde les modifications dans anime_db_local.json."""
-        try:
-            self.local_cache_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.local_cache_path, "w", encoding="utf-8") as f:
-                json.dump(local_cache_data, f, ensure_ascii=False, indent=4)
-        except Exception as e:
-            print(f"[CACHE ERROR] Impossible de sauvegarder le cache local: {e}")
+    def save_local_cache(self, data: dict):
+        self.local_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.local_cache_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    def load_mal_database(self) -> dict | list:
+        if self.mal_db_path.exists():
+            try:
+                with open(self.mal_db_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"[-] Erreur chargement base MAL : {e}")
+        return {}
 
     def get_local_episodes_count(self, local_cache_data: dict, anime_title: str, anime_mal_id: int = None) -> int:
-        """Récupère le nombre d'épisodes locaux en cherchant d'abord par mal_id, puis par correspondance de titre."""
+        """Récupère le nombre d'épisodes locaux en cherchant par mal_id ou par titre dans la structure plate."""
         if not local_cache_data:
             return 0
 
         matched_entry = None
 
-        # 1. Recherche prioritaire par mal_id
+        # 1. Recherche par mal_id
         if anime_mal_id:
-            for local_anime_name, seasons in local_cache_data.items():
-                if isinstance(seasons, dict):
-                    for season_name, season_data in seasons.items():
-                        if isinstance(season_data, dict) and season_data.get("mal_id") == anime_mal_id:
-                            matched_entry = {season_name: season_data}
-                            break
-                if matched_entry:
-                    break
-
-        # 2. Solution de repli : recherche textuelle
-        if not matched_entry and anime_title:
-            if anime_title in local_cache_data:
-                matched_entry = local_cache_data[anime_title]
+            str_id = str(anime_mal_id)
+            if str_id in local_cache_data:
+                matched_entry = local_cache_data[str_id]
             else:
-                for key in local_cache_data:
-                    if (
-                            key.lower() in anime_title.lower()
-                            or anime_title.lower() in key.lower()
-                    ):
-                        matched_entry = local_cache_data[key]
+                for entry in local_cache_data.values():
+                    if isinstance(entry, dict) and entry.get("mal_id") == anime_mal_id:
+                        matched_entry = entry
                         break
 
-        if not matched_entry:
+        # 2. Repli textuel
+        if not matched_entry and anime_title:
+            for entry in local_cache_data.values():
+                if isinstance(entry, dict) and entry.get("title", "").lower() == anime_title.lower():
+                    matched_entry = entry
+                    break
+
+        if not matched_entry or not isinstance(matched_entry, dict):
             return 0
 
-        total_local = 0
-        for season_name, season_data in matched_entry.items():
-            if isinstance(season_data, dict) and "episodes" in season_data:
-                total_local += len(season_data["episodes"])
-
-        return total_local
+        episodes = matched_entry.get("episodes", [])
+        return len(episodes)

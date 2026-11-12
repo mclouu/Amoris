@@ -1,11 +1,10 @@
 import json
 from pathlib import Path
-from core.parser import AnimeFilenameParser
-import re
+from core.normalizer import parse, is_fankai, normalize_key
 
 
 class LocalAnimeScanner:
-    """Gère le scan du dossier d'animés et la persistance de la BDD JSON locale."""
+    """Gère le scan du dossier d'animés et la persistance de la BDD JSON locale par ID MAL."""
 
     def __init__(self, target_path: str, cache_file: str = "cache/anime_db_local.json",
                  mal_db_file: str = "cache/anime_db_mal.json"):
@@ -16,7 +15,7 @@ class LocalAnimeScanner:
         self.database = {}
 
     def _load_mal_mapping(self) -> dict:
-        """Charge une table de correspondance {titre_normalise: mal_id} depuis le cache MAL."""
+        """Charge l'index des titres MAL pour lier un titre normalisé à son ID unique."""
         mapping = {}
         if self.mal_db_file.exists():
             try:
@@ -25,102 +24,81 @@ class LocalAnimeScanner:
                     for item in content.get("data", []):
                         node = item.get("node", {})
                         mal_id = node.get("id")
-
-                        titles = [node.get("title", "")]
-                        alt_titles = node.get("alternative_titles", {})
-                        if alt_titles.get("en"):
-                            titles.append(alt_titles.get("en"))
-                        if alt_titles.get("ja"):
-                            titles.append(alt_titles.get("ja"))
-                        for syn in alt_titles.get("synonyms", []):
-                            titles.append(syn)
+                        alt = node.get("alternative_titles", {}) or {}
+                        titles = [node.get("title"), alt.get("en"), alt.get("ja"), *(alt.get("synonyms") or [])]
 
                         for t in titles:
                             if t:
-                                # Normalisation extrême (garde uniquement les lettres et chiffres en minuscules)
-                                clean_t = re.sub(r'[^a-z0-9]', '', t.lower())
-                                if clean_t:
-                                    mapping[clean_t] = mal_id
+                                k = normalize_key(t)
+                                if len(k) >= 3 and k not in mapping:
+                                    mapping[k] = mal_id
             except Exception as e:
                 print(f"[-] Erreur lors du chargement du mapping MAL: {e}")
         return mapping
 
-    def _find_mal_id(self, anime_name: str) -> int | None:
-        """Tente de trouver le mal_id correspondant au nom d'animé parsé de manière sécurisée."""
-        clean_name = re.sub(r'[^a-z0-9]', '', anime_name.lower())
-
-        if not clean_name or len(clean_name) < 2:
-            return None
-
-        # 1. Correspondance exacte prioritaire sur le slug
-        if clean_name in self.mal_mapping:
-            return self.mal_mapping[clean_name]
-
-        # 2. Recherche par inclusion STRICTE uniquement si le nom est assez long (ex: > 4 caractères)
-        for title, mal_id in self.mal_mapping.items():
-            if len(clean_name) >= 4 and (title == clean_name or title in clean_name or clean_name in title):
-                if abs(len(title) - len(clean_name)) < 15:
-                    return mal_id
-
+    def _find_mal_id(self, parsed_obj) -> int | None:
+        """Cherche le MAL ID correspondant aux variantes de titres du fichier parsé."""
+        for v in parsed_obj.title_variants():
+            k = normalize_key(v)
+            if k in self.mal_mapping:
+                return self.mal_mapping[k]
         return None
 
     def scan(self):
-        """Parcourt le dossier cible et construit l'arborescence."""
         if not self.target_path.exists():
             print(f"[-] Erreur : Le chemin {self.target_path} n'existe pas.")
             return False
 
-        print(f"[*] Début du scan de : {self.target_path}")
+        print(f"[*] Début du scan intelligent de : {self.target_path}")
 
-        valid_extensions = {".mkv", ".mp4"}
+        valid_extensions = {".mkv", ".mp4", ".avi", ".m4v"}
         temp_db = {}
 
         for file_path in self.target_path.rglob("*"):
-            if file_path.is_file() and file_path.suffix.lower() in valid_extensions:
-                filename = file_path.name
+            if not file_path.is_file() or file_path.suffix.lower() not in valid_extensions:
+                continue
 
-                # Récupération du chemin complet sous forme de chaîne pour analyser les dossiers parents
-                full_path_str = str(file_path).lower()
+            # Ignore les contenus spécifiques (type Fan-Kai, etc.)
+            if is_fankai(str(file_path)):
+                continue
 
-                # 🛑 FILTRE ANTI FAN-KAI
-                # Ignore les fichiers ou dossiers contenant "fan-kai" ou "fankai"
-                if "fan-kai" in full_path_str or "fankai" in full_path_str:
-                    continue
+            p = parse(file_path.name, folder_name=file_path.parent.name)
+            if p.ignored:
+                continue
 
-                anime, season, episode = AnimeFilenameParser.parser.parse(filename) if hasattr(AnimeFilenameParser,
-                                                                                               'parser') else AnimeFilenameParser.parse(
-                    filename)
+            mal_id = self._find_mal_id(p)
 
-                # Initialisation de l'œuvre
-                if anime not in temp_db:
-                    temp_db[anime] = {}
+            # Clé unique : Priorité au MAL ID, sinon repli sur le titre propre de la saison
+            entry_key = str(mal_id) if mal_id else f"unmatched_{p.title_with_season or p.title}"
 
-                # Initialisation de la saison avec l'ID MAL détecté automatiquement
-                if season not in temp_db[anime]:
-                    detected_mal_id = self._find_mal_id(anime)
+            if entry_key not in temp_db:
+                temp_db[entry_key] = {
+                    "mal_id": mal_id,
+                    "title": p.title_with_season or p.title,
+                    "folder_path": str(file_path.parent.resolve()),
+                    "episodes": []
+                }
 
-                    temp_db[anime][season] = {
-                        "mal_id": detected_mal_id,
-                        "folder_path": str(file_path.parent.resolve()),
-                        "episodes": []
-                    }
+            # On enregistre l'épisode s'il est identifié (avec juste le nom du fichier pour optimiser)
+            if p.episode is not None:
+                ep_data = {
+                    "episode": p.episode,
+                    "kind": p.kind,  # 'episode' ou 'special'
+                    "filename": file_path.name
+                }
+                # Évite les doublons stricts d'épisodes
+                if ep_data not in temp_db[entry_key]["episodes"]:
+                    temp_db[entry_key]["episodes"].append(ep_data)
 
-                # Ajout de l'épisode
-                ep_data = {"episode": episode}
-                if ep_data not in temp_db[anime][season]["episodes"]:
-                    temp_db[anime][season]["episodes"].append(ep_data)
-
-        # Trier les épisodes par numéro pour chaque saison
-        for anime in temp_db:
-            for season in temp_db[anime]:
-                temp_db[anime][season]["episodes"].sort(key=lambda x: x["episode"])
+        # Tri des épisodes par numéro pour chaque entrée
+        for entry in temp_db.values():
+            entry["episodes"].sort(key=lambda x: x["episode"])
 
         self.database = temp_db
         print("[*] Scan terminé avec succès.")
         return True
 
     def save_cache(self):
-        """Sauvegarde la structure dans un fichier JSON local."""
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.cache_file, "w", encoding="utf-8") as f:
             json.dump(self.database, f, ensure_ascii=False, indent=4)

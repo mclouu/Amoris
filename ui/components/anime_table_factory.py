@@ -9,10 +9,12 @@ from PyQt6.QtCore import Qt, QPoint
 from ui.colors import Colors
 from utils.translator import tr
 from ui.components.progress_delegate import ProgressDelegate
+from ui.components.anime_double_click_handler import AnimeDoubleClickHandler
+from utils.date_reformat import format_date, format_season
 
 
 class AnimeTableFactory:
-    """Fabrique et configure les tableaux d'animés par statut."""
+    """Fabrique et configure les tableaux d'animés par statut (basé 100% sur le mal_id)."""
 
     def __init__(self, parent_widget, columns_config: list, local_db_data: list, cache_repo,
                  show_context_menu_callback):
@@ -21,6 +23,7 @@ class AnimeTableFactory:
         self.local_db_data = local_db_data
         self.cache_repo = cache_repo
         self.show_context_menu_callback = show_context_menu_callback
+        self.double_click_handler = AnimeDoubleClickHandler(self.parent, self.local_db_data)
 
     def create_table(self, status_id: str) -> QTableWidget:
         table = QTableWidget()
@@ -31,6 +34,11 @@ class AnimeTableFactory:
 
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+
+        # Connexion du double-clic sur une ligne/cellule
+        table.cellDoubleClicked.connect(
+            lambda row, col, t=table: self.double_click_handler.handle_double_click(row, col, t)
+        )
 
         # Clic droit sur les lignes (menu contextuel des animés)
         table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -104,16 +112,20 @@ class AnimeTableFactory:
                 return item
 
             anime_title = node.get("title", tr.get("unknown_title"))
-            table.setItem(row_idx, 0, create_read_only_item(anime_title))
+            mal_id = node.get("id")
+
+            # 🚀 Stockage direct du mal_id dans l'item de la colonne 0 (titre)
+            title_item = create_read_only_item(anime_title)
+            title_item.setData(Qt.ItemDataRole.UserRole, mal_id)
+            table.setItem(row_idx, 0, title_item)
 
             watched = list_status.get("num_episodes_watched", 0)
             total_episodes = node.get("num_episodes", 0) or 0
             user_status = list_status.get("status", status_id)
 
-            mal_id = node.get("id")
-            local_episodes = self.cache_repo.get_local_episodes_count(
-                self.parent.local_cache_data, anime_title, mal_id
-            )
+            # 🚀 Récupération directe et exclusive par ID dans le cache local
+            local_entry = self.parent.local_cache_data.get(str(mal_id), {})
+            local_episodes = len(local_entry.get("episodes", []))
 
             progress_item = QTableWidgetItem()
             progress_item.setData(
@@ -131,13 +143,12 @@ class AnimeTableFactory:
             )
             table.setItem(row_idx, 1, progress_item)
 
-            table.setItem(row_idx, 2, create_read_only_item("-"))
-
+            table.setItem(row_idx, 2, create_read_only_item(format_season(node.get("start_season"))))
             score = list_status.get("score", 0)
             table.setItem(row_idx, 3, create_read_only_item(str(score)))
 
-            updated_at = list_status.get("updated_at", "-")
-            table.setItem(row_idx, 4, create_read_only_item(updated_at))
+            updated_at = list_status.get("updated_at")
+            table.setItem(row_idx, 4, create_read_only_item(format_date(updated_at)))
 
             for col_i in range(5, len(self.columns_config)):
                 table.setItem(row_idx, col_i, create_read_only_item("-"))

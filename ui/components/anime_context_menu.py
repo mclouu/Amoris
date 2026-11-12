@@ -1,13 +1,14 @@
 from pathlib import Path
 import os
-from PyQt6.QtWidgets import QMenu, QFileDialog
+import json
+from PyQt6.QtWidgets import QMenu, QFileDialog, QInputDialog
 from PyQt6.QtCore import QPoint
 from ui.colors import Colors
 from utils.translator import tr
 
 
 class AnimeContextMenu:
-    """Gère le menu contextuel et les actions associées pour un animé."""
+    """Gère le menu contextuel et les actions associées pour un animé (basé strictement sur l'ID MAL)."""
 
     def __init__(self, parent_widget, anime_title: str, anime_mal_id: int, local_cache_data: dict, save_cache_callback):
         self.parent = parent_widget
@@ -37,35 +38,103 @@ class AnimeContextMenu:
             }}
         """)
 
-        # Utilisation de la traduction
+        # 1. Action : Ouvrir le dossier
         open_folder_action = menu.addAction(tr.get("menu_open_folder"))
         open_folder_action.triggered.connect(self._open_anime_folder)
 
+        # 2. Action : Définir l'ID MAL manuellement 🚀
+        set_id_action = menu.addAction("Définir l'ID MAL manuellement")
+        set_id_action.triggered.connect(self._set_mal_id_manually)
+
         menu.exec(global_pos)
 
+    def _trigger_ui_refresh(self):
+        """Force le rechargement de l'interface principale pour actualiser les barres de progression."""
+        p = self.parent
+        while p is not None:
+            if hasattr(p, "reload_local_data"):
+                p.reload_local_data()
+                break
+            p = p.parent()
+
+    def _set_mal_id_manually(self):
+        """Associe ou migre l'entrée locale en se basant strictement sur le nouvel ID MAL fourni."""
+        mal_id, ok = QInputDialog.getInt(
+            self.parent,
+            "Association d'ID MAL",
+            f"Entrez l'ID MAL pour '{self.anime_title}' :",
+            value=self.anime_mal_id if self.anime_mal_id else 0,
+            min=1,
+            max=999999
+        )
+        if not ok:
+            return
+
+        # Récupération du titre MAL officiel pour l'affichage
+        root_dir = next((p for p in Path(__file__).resolve().parents if p.name == 'Amoris'), None)
+        mal_db_path = root_dir / "cache" / "anime_db_mal.json" if root_dir else Path("cache/anime_db_mal.json")
+
+        mal_title = self.anime_title
+        if mal_db_path.exists():
+            try:
+                with open(mal_db_path, "r", encoding="utf-8") as f:
+                    mal_data = json.load(f)
+                    items = mal_data.get("data", []) if isinstance(mal_data, dict) else mal_data
+                    for item in items:
+                        node = item.get("node", {})
+                        if node.get("id") == mal_id:
+                            mal_title = node.get("title", self.anime_title)
+                            break
+            except Exception as e:
+                print(f"[-] Erreur lecture base MAL : {e}")
+
+        target_key = str(mal_id)
+        old_key = str(self.anime_mal_id) if self.anime_mal_id else None
+
+        # Migration propre de l'ancienne clé vers la nouvelle clé basée sur l'ID MAL
+        if old_key and old_key in self.local_cache_data:
+            entry_data = self.local_cache_data.pop(old_key)
+            entry_data["mal_id"] = mal_id
+            entry_data["title"] = mal_title
+            self.local_cache_data[target_key] = entry_data
+        else:
+            self.local_cache_data[target_key] = {
+                "mal_id": mal_id,
+                "title": mal_title,
+                "folder_path": "",
+                "episodes": []
+            }
+
+        if self.save_cache_callback:
+            self.save_cache_callback()
+
+        print(f"[Cache] ID MAL {mal_id} enregistré avec succès pour l'entrée '{target_key}' !")
+
+        # Ouverture directe de l'explorateur pour lier le dossier
+        base_path = str(Path(__file__).resolve().parent.parent.parent / "Vidéos" / "Animé")
+        dialog_title = tr.get("dialog_select_folder", anime_title=mal_title)
+
+        selected_dir = QFileDialog.getExistingDirectory(
+            self.parent,
+            dialog_title,
+            base_path
+        )
+
+        if selected_dir:
+            self.local_cache_data[target_key]["folder_path"] = selected_dir
+            if self.save_cache_callback:
+                self.save_cache_callback()
+            print(f"[Cache] Dossier local associé : {selected_dir}")
+
+        self._trigger_ui_refresh()
+
     def _open_anime_folder(self):
-        """Ouvre le dossier local de l'animé ou demande à l'utilisateur de le définir s'il est introuvable."""
+        """Ouvre le dossier local en utilisant strictement la clé ID MAL."""
+        target_key = str(self.anime_mal_id) if self.anime_mal_id else None
         folder_path_str = None
 
-        if self.local_cache_data:
-            matched_entry = None
-            if self.anime_mal_id:
-                for local_name, seasons in self.local_cache_data.items():
-                    if isinstance(seasons, dict):
-                        for s_name, s_data in seasons.items():
-                            if isinstance(s_data, dict) and s_data.get("mal_id") == self.anime_mal_id:
-                                matched_entry = s_data
-                                break
-                    if matched_entry:
-                        break
-
-            if not matched_entry and self.anime_title in self.local_cache_data:
-                seasons = self.local_cache_data[self.anime_title]
-                if isinstance(seasons, dict) and seasons:
-                    matched_entry = list(seasons.values())[0]
-
-            if matched_entry and isinstance(matched_entry, dict):
-                folder_path_str = matched_entry.get("folder_path")
+        if target_key and target_key in self.local_cache_data:
+            folder_path_str = self.local_cache_data[target_key].get("folder_path")
 
         target_dir = Path(folder_path_str) if folder_path_str else None
 
@@ -73,8 +142,6 @@ class AnimeContextMenu:
             os.startfile(str(target_dir))
         else:
             base_path = str(Path(__file__).resolve().parent.parent.parent / "Vidéos" / "Animé")
-
-            # Utilisation de la traduction avec formatage du titre
             dialog_title = tr.get("dialog_select_folder", anime_title=self.anime_title)
             selected_dir = QFileDialog.getExistingDirectory(
                 self.parent,
@@ -83,24 +150,20 @@ class AnimeContextMenu:
             )
 
             if selected_dir:
-                if self.anime_title not in self.local_cache_data:
-                    self.local_cache_data[self.anime_title] = {}
+                if target_key:
+                    if target_key not in self.local_cache_data:
+                        self.local_cache_data[target_key] = {
+                            "mal_id": self.anime_mal_id,
+                            "title": self.anime_title,
+                            "folder_path": selected_dir,
+                            "episodes": []
+                        }
+                    else:
+                        self.local_cache_data[target_key]["folder_path"] = selected_dir
 
-                existing_seasons = list(self.local_cache_data[self.anime_title].keys())
-                target_season_key = existing_seasons[0] if existing_seasons else "Saison 1"
-
-                if target_season_key not in self.local_cache_data[self.anime_title]:
-                    self.local_cache_data[self.anime_title][target_season_key] = {
-                        "mal_id": self.anime_mal_id,
-                        "folder_path": selected_dir,
-                        "episodes": []
-                    }
-                else:
-                    self.local_cache_data[self.anime_title][target_season_key]["folder_path"] = selected_dir
-                    if self.anime_mal_id:
-                        self.local_cache_data[self.anime_title][target_season_key]["mal_id"] = self.anime_mal_id
-
-                if self.save_cache_callback:
-                    self.save_cache_callback()
+                    if self.save_cache_callback:
+                        self.save_cache_callback()
 
                 os.startfile(selected_dir)
+
+        self._trigger_ui_refresh()

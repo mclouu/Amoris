@@ -23,7 +23,9 @@ class ContentView(QWidget):
         self.setStyleSheet(f"background-color: {Colors.BG_MAIN};")
 
         self.cache_repo = CacheRepository()
-        self.local_db_data = self.cache_repo.load_mal_database()
+        raw_mal_data = self.cache_repo.load_mal_database()
+        # On extrait la liste des animés depuis la clé "data" du JSON MAL
+        self.local_db_data = raw_mal_data.get("data", []) if isinstance(raw_mal_data, dict) else raw_mal_data
         self.local_cache_data = self.cache_repo.load_local_cache()
 
         self.tabs_data = [
@@ -57,6 +59,27 @@ class ContentView(QWidget):
         )
 
         self._init_ui()
+
+    def reload_local_data(self):
+        """Recharge le cache local et rafraîchit les tableaux."""
+        print("[UI] Rechargement du cache local et rafraîchissement des tableaux...")
+        self.local_cache_data = self.cache_repo.load_local_cache()
+
+        # Supprime et recrée les tables pour forcer la mise à jour visuelle des barres de progression
+        for tab_id, table in self.tables.items():
+            self.tabs.removeTab(self.tabs.indexOf(table))
+
+        self.tables.clear()
+        for tab_info in self.tabs_data:
+            table_widget = self.table_factory.create_table(tab_info["id"])
+            table_widget.itemSelectionChanged.connect(
+                lambda t=table_widget: self._on_row_selected(t)
+            )
+            tab_name = tr.get(tab_info["key"], count=tab_info["count"])
+            self.tabs.addTab(table_widget, tab_name)
+            self.tables[tab_info["id"]] = table_widget
+
+        print("[UI] Interface mise à jour avec succès !")
 
     def _save_local_cache(self):
         self.cache_repo.save_local_cache(self.local_cache_data)
@@ -121,13 +144,9 @@ class ContentView(QWidget):
         row = table.row(selected_items[0])
         title_item = table.item(row, 0)
         if title_item:
-            anime_title = title_item.text()
-            for item in self.local_db_data:
-                if item.get("node", {}).get("title") == anime_title:
-                    mal_id = item.get("node", {}).get("id")
-                    if mal_id:
-                        self.anime_selected.emit(mal_id)
-                    break
+            mal_id = title_item.data(Qt.ItemDataRole.UserRole)
+            if mal_id:
+                self.anime_selected.emit(mal_id)
 
     def _show_row_context_menu(self, pos: QPoint, table: QTableWidget):
         index = table.indexAt(pos)
@@ -140,11 +159,7 @@ class ContentView(QWidget):
             return
 
         anime_title = title_item.text()
-        anime_mal_id = None
-        for item in self.local_db_data:
-            if item.get("node", {}).get("title") == anime_title:
-                anime_mal_id = item.get("node", {}).get("id")
-                break
+        anime_mal_id = title_item.data(Qt.ItemDataRole.UserRole)  # 🚀 Récupération propre de l'ID via le UserRole
 
         context_menu = AnimeContextMenu(
             parent_widget=self,
