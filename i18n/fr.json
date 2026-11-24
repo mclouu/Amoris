@@ -35,5 +35,30 @@
   "settings_cat_language": "Langue",
   "settings_cat_theme": "Thème",
   "settings_lang_label": "Choisissez la langue de l'application :",
-  "settings_theme_placeholder": "🛠️ Panneau des Thèmes (À venir)"
+  "settings_theme_placeholder": "🛠️ Panneau des Thèmes (À venir)",
+
+  "settings_cat_mal": "Compte MyAnimeList",
+  "mal_status_disconnected": "Non connecté",
+  "mal_status_checking": "Vérification du compte...",
+  "mal_status_connecting": "Connexion en cours dans le navigateur...",
+  "mal_status_connected": "Connecté en tant que {username}",
+  "mal_btn_connect": "Se connecter",
+  "mal_btn_disconnect": "Se déconnecter",
+  "mal_browser_page_text": "Connexion à Amoris réussie ! Vous pouvez fermer cet onglet et retourner dans l'application.",
+  "mal_err_config_missing": "Configuration MyAnimeList manquante.",
+  "mal_err_port_in_use": "Le port local requis pour l'authentification est déjà utilisé.",
+  "mal_err_auth_denied": "Autorisation refusée depuis MyAnimeList.",
+  "mal_err_auth_timeout": "Délai d'attente de connexion dépassé.",
+  "mal_err_auth_state_mismatch": "Erreur de sécurité lors de la validation de la session.",
+  "mal_err_auth_rejected": "Authentification rejetée par MyAnimeList.",
+  "mal_err_network_error": "Erreur réseau, impossible de joindre MyAnimeList.",
+  "mal_err_not_logged_in": "Vous n'êtes pas connecté à MyAnimeList.",
+  "mal_err_auth_expired": "Votre session a expiré, veuillez vous reconnecter.",
+  "mal_err_bad_request": "Requête invalide envoyée à MyAnimeList.",
+  "mal_err_forbidden": "Accès refusé par MyAnimeList.",
+  "mal_err_not_found": "Ressource introuvable sur MyAnimeList.",
+  "mal_err_rate_limited": "Trop de requêtes envoyées à MyAnimeList, réessayez plus tard.",
+  "mal_err_api_error": "Erreur interne de l'API MyAnimeList.",
+  "mal_err_unknown": "Une erreur inattendue est survenue lors de la connexion."
 }
+

@@ -6,6 +6,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+import time
+
 
 from core import mal_auth
 
@@ -92,3 +94,40 @@ def update_episodes(anime_id: int, watched: int, status: str | None = None, scor
     if score is not None:
         form["score"] = score
     return _request("PATCH", f"{API}/anime/{anime_id}/my_list_status", form)
+
+USER_CACHE_PATH = Path(__file__).resolve().parent.parent / "cache" / "user.json"
+
+
+def _write_json_atomic(path: Path, obj):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def fetch_profile() -> dict:
+    """Profil complet avec les statistiques d'anime (réseau)."""
+    return _request("GET", f"{API}/users/@me?fields=anime_statistics")
+
+
+def refresh_profile_cache() -> dict:
+    """Télécharge le profil et l'écrit dans cache/user.json. Retourne le profil."""
+    profile = fetch_profile()
+    profile["fetched_at"] = int(time.time())
+    _write_json_atomic(USER_CACHE_PATH, profile)
+    return profile
+
+
+def load_profile_cache() -> dict:
+    """Lit le cache du profil (aucun réseau). Retourne {} s'il n'existe pas encore."""
+    try:
+        return json.loads(USER_CACHE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def sync_all() -> dict:
+    """Synchro complète : à appeler au démarrage ET depuis le bouton du header (une seule logique)."""
+    profile = refresh_profile_cache()
+    count = refresh_list_cache()
+    return {"profile": profile, "list_count": count}
