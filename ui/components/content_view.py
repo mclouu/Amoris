@@ -10,6 +10,10 @@ from utils.translator import tr
 from ui.components.anime_context_menu import AnimeContextMenu
 from ui.components.anime_table_factory import AnimeTableFactory
 from core.cache_repository import CacheRepository
+from core.normalizer import normalize_key
+from PyQt6.QtWidgets import QStackedWidget
+from ui.components.search_results_view import SearchResultsView
+
 
 
 class ContentView(QWidget):
@@ -57,7 +61,8 @@ class ContentView(QWidget):
             cache_repo=self.cache_repo,
             show_context_menu_callback=self._show_row_context_menu
         )
-
+        self._search_text = ""
+        self._build_search_index()
         self._init_ui()
 
     def reload_local_data(self):
@@ -133,8 +138,49 @@ class ContentView(QWidget):
             self.tabs.addTab(table_widget, tab_name)
             self.tables[tab_info["id"]] = table_widget
 
-        layout.addWidget(self.tabs)
+        self.results_view = SearchResultsView(self)
+        self.results_view.anime_selected.connect(self.anime_selected.emit)
+        self.results_view.anime_activated.connect(self._on_result_activated)
+
+        self.stack = QStackedWidget()
+        self.stack.addWidget(self.tabs)
+        self.stack.addWidget(self.results_view)
+        layout.addWidget(self.stack)
         self._apply_global_columns_visibility_on_all()
+
+    def _build_search_index(self):
+        """Pour chaque ID MAL, les titres normalisés (principal, anglais, japonais, synonymes)."""
+        self._search_index = {}
+        for item in self.local_db_data:
+            node = item.get("node", {})
+            alt = node.get("alternative_titles", {}) or {}
+            titles = [node.get("title"), alt.get("en"), alt.get("ja"), *(alt.get("synonyms") or [])]
+            self._search_index[node.get("id")] = [normalize_key(t) for t in titles if t]
+
+    def apply_filter(self, text: str):
+        """Texte vide : onglets. Texte saisi : résultats globaux regroupés par statut."""
+        self._search_text = text
+        needle = normalize_key(text)
+
+        if not needle:
+            self.stack.setCurrentWidget(self.tabs)
+            return
+
+        matches = [
+            item for item in self.local_db_data
+            if any(needle in k for k in self._search_index.get(item.get("node", {}).get("id"), []))
+        ]
+        self.results_view.set_results(matches, self._local_count)
+        self.stack.setCurrentWidget(self.results_view)
+
+    def _local_count(self, entry: dict) -> int:
+        node = entry.get("node", {})
+        return self.cache_repo.get_local_episodes_count(
+            self.local_cache_data, node.get("title", ""), node.get("id")
+        )
+
+    def _on_result_activated(self, mal_id: int, title: str):
+        self.table_factory.double_click_handler.handle_click(title, mal_id)
 
     def _on_row_selected(self, table: QTableWidget):
         selected_items = table.selectedItems()
@@ -193,12 +239,16 @@ class ContentView(QWidget):
             self.columns_config[idx]["default_visible"] = visible
 
         self._apply_global_columns_visibility_on_all()
+        self.apply_filter(self._search_text)
 
     def retranslate_ui(self):
         """Met à jour dynamiquement les textes des onglets et des en-têtes de colonnes."""
         for index, tab_info in enumerate(self.tabs_data):
             new_tab_name = tr.get(tab_info["key"], count=tab_info["count"])
             self.tabs.setTabText(index, new_tab_name)
+            self.results_view.setHeaderLabels([tr.get("col_title"), tr.get("col_progress")])
+            if self._search_text:
+                self.apply_filter(self._search_text)  # reconstruit les libellés de groupe
 
         for table in self.tables.values():
             table.setHorizontalHeaderLabels(

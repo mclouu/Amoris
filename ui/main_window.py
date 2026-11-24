@@ -69,6 +69,10 @@ class MainWindow(QMainWindow):
 
         # Connexion du signal de scan du Header pour rafraîchir les données en direct !
         self.header.local_scan_finished.connect(self.reload_local_data)
+        self.header.search_changed.connect(self._on_search_changed)
+
+    def _on_search_changed(self, text: str):
+        self.content_view.apply_filter(text)
 
     def run_startup_scan(self):
         """Exécute le scan local automatiquement au lancement de l'application."""
@@ -88,6 +92,7 @@ class MainWindow(QMainWindow):
         print("[UI] Rechargement du cache local et rafraîchissement des tableaux...")
 
         self.content_view.local_cache_data = self.content_view.cache_repo.load_local_cache()
+        self.content_view.apply_filter(self.header.search_input.text())
 
         central_layout = self.centralWidget().layout()
         right_container = central_layout.itemAt(1).widget()

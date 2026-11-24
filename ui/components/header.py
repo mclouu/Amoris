@@ -7,10 +7,9 @@ from utils.translator import tr
 from ui.components.settings_window import SettingsWindow
 from core.scanner import LocalAnimeScanner
 
-
 class Header(QWidget):
     """En-tête principal de l'application contenant la recherche et les actions globales."""
-    local_scan_finished = pyqtSignal()
+    local_scan_finished =  search_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -44,6 +43,7 @@ class Header(QWidget):
             }}
         """)
         layout.addWidget(self.search_input, stretch=1)
+        self.search_input.textChanged.connect(self.search_changed.emit)
 
         layout.addSpacing(20)
 

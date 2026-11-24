@@ -59,6 +59,7 @@
   "mal_err_not_found": "Ressource introuvable sur MyAnimeList.",
   "mal_err_rate_limited": "Trop de requêtes envoyées à MyAnimeList, réessayez plus tard.",
   "mal_err_api_error": "Erreur interne de l'API MyAnimeList.",
-  "mal_err_unknown": "Une erreur inattendue est survenue lors de la connexion."
+  "mal_err_unknown": "Une erreur inattendue est survenue lors de la connexion.",
+  "search_no_results": "Aucun résultat"
 }
 
